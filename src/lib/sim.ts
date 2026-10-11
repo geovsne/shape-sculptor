@@ -13,8 +13,10 @@ import {
   HEADS,
   HEADS_OF,
   HEAD_IDS,
-  headEmphasis,
+  itemEmphasis,
+  ROMS,
   type Head,
+  type Rom,
 } from "./training";
 
 /* ------------------------------------------------------------------ */
@@ -34,6 +36,10 @@ export const INTENSITY_IDS = Object.keys(INTENSITIES) as Intensity[];
 export type PlanItem = {
   /** grip / stance variation id (see Exercise.variants) */
   variant?: string | undefined;
+  /** bench angle in degrees (PRO, bench presses only) */
+  angle?: number | undefined;
+  /** range of motion (PRO) */
+  rom?: Rom | undefined;
   exId: string;
   sets: number;
   reps: number;
@@ -562,6 +568,11 @@ export function injuredMuscles(s: SimState): Partial<Record<Muscle, number>> {
   return out;
 }
 
+/** grip, bench angle: only honoured with PRO */
+const modsOf = (item: PlanItem, o: Options) =>
+  o.pro ? { variant: item.variant, angle: item.angle } : {};
+const romMul = (item: PlanItem, o: Options) => (o.pro && item.rom ? ROMS[item.rom].mul : 1);
+
 export function analyzePlan(plan: Plan, s: SimState, o: Options) {
   const sets = zero(MUSCLE_IDS);
   const headSets = zero(HEAD_IDS);
@@ -582,7 +593,7 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
       const add = (m: Muscle, c: number) => {
         sets[m] += item.sets * c;
         for (const h of HEADS_OF[m])
-          headSets[h] += item.sets * c * headEmphasis(e, h, item.variant);
+          headSets[h] += item.sets * c * itemEmphasis(e, h, modsOf(item, o));
         daily[m]![d]! += item.sets * c * fat;
         systemic += item.sets * c * fat;
       };
@@ -844,7 +855,8 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
       const e = EX_BY_ID[item.exId];
       if (!e || item.sets <= 0) continue;
       const li = loadInfo(item, s, o.pro);
-      const { stim: st, fat } = perSet(item, li);
+      const { stim: st0, fat } = perSet(item, li);
+      const st = st0 * romMul(item, o);
       const apply = (m: Muscle, c: number, primary: boolean) => {
         if (isInjured(m)) {
           const inj = primary
@@ -877,7 +889,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
         for (const h of HEADS_OF[m])
           sHead[h] =
             (sHead[h] ?? 0) +
-            (item.sets * c * st * headEmphasis(e, h, item.variant)) / (1 + F[m] / 10);
+            (item.sets * c * st * itemEmphasis(e, h, modsOf(item, o))) / (1 + F[m] / 10);
       };
       e.primary.forEach((m) => apply(m, 1, true));
       e.secondary.forEach((m) => apply(m, 0.5, false));

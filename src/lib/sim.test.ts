@@ -162,3 +162,26 @@ describe("cabeças musculares", () => {
     expect(s.dev.quads).toBeLessThan(0.2);
   });
 });
+
+describe("recursos PRO de execução", () => {
+  const one = (extra: Partial<import("./sim").PlanItem>): Plan => {
+    const p = emptyPlan();
+    for (const d of [0, 2, 4])
+      p[d] = [{ exId: "bench", sets: 5, reps: 10, intensity: "pesada", ...extra }];
+    return p;
+  };
+  const g = (s: SimState, h: "chest_upper" | "chest_lower") =>
+    s.headDev[h] - initSim(man).headDev[h];
+  it("supino a 45° (PRO) puxa o peitoral superior; sem PRO o ângulo é ignorado", () => {
+    const pro45 = run(one({ angle: 45 }), bulk, 10);
+    expect(g(pro45, "chest_upper")).toBeGreaterThan(g(pro45, "chest_lower"));
+    const free45 = run(one({ angle: 45 }), { ...bulk, pro: false }, 10);
+    const flat = run(one({}), { ...bulk, pro: false }, 10);
+    expect(free45.headDev).toEqual(flat.headDev);
+  });
+  it("amplitude parcial encurtada cresce menos que a completa", () => {
+    const full = run(one({}), bulk, 10);
+    const short = run(one({ rom: "short" }), bulk, 10);
+    expect(full.dev.chest).toBeGreaterThan(short.dev.chest);
+  });
+});

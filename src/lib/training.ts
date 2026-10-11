@@ -181,6 +181,8 @@ export type Exercise = {
   heads: Partial<Record<Head, number>>;
   /** grip / stance variations; the first one is the default. Their heads override the base map. */
   variants?: { id: string; label: string; heads: Partial<Record<Head, number>> }[];
+  /** bench presses: default bench angle in degrees (PRO can change it) */
+  bench?: number;
 };
 
 type Variant = NonNullable<Exercise["variants"]>[number];
@@ -189,6 +191,7 @@ type Opts = {
   bodyFrac?: number;
   heads?: Partial<Record<Head, number>>;
   variants?: Variant[];
+  bench?: number;
 };
 const ex = (
   id: string,
@@ -209,6 +212,7 @@ const ex = (
   unit: o.unit ?? (o.bodyFrac ? "kg extra" : "kg"),
   heads: o.heads ?? {},
   ...(o.variants ? { variants: o.variants } : {}),
+  ...(o.bench != null ? { bench: o.bench } : {}),
 });
 
 // common emphasis profiles
@@ -323,6 +327,7 @@ export const EXERCISES: Exercise[] = [
   // chest
   ex("bench", "Supino reto com barra", "Peso livre", ["chest"], ["frontDelts", "triceps"], 0.75, {
     heads: { chest_mid: 1, chest_upper: 0.55, chest_lower: 0.75, ...PRESS_TRI },
+    bench: 0,
     variants: [
       { id: "medium", label: "Pegada média", heads: {} },
       {
@@ -361,10 +366,12 @@ export const EXERCISES: Exercise[] = [
     {
       unit: "kg cada",
       heads: { chest_upper: 1, chest_mid: 0.6, chest_lower: 0.25, ...PRESS_TRI },
+      bench: 30,
     },
   ),
   ex("declineBench", "Supino declinado", "Peso livre", ["chest"], ["triceps"], 0.8, {
     heads: { chest_lower: 1, chest_mid: 0.8, chest_upper: 0.25, ...PRESS_TRI },
+    bench: -15,
   }),
   ex("chestPress", "Chest press", "Máquina", ["chest"], ["frontDelts", "triceps"], 0.7, {
     heads: { chest_mid: 1, chest_upper: 0.5, chest_lower: 0.7, ...PRESS_TRI },
@@ -782,6 +789,39 @@ export const EX_BY_ID = Object.fromEntries(EXERCISES.map((e) => [e.id, e])) as R
 >;
 
 /** emphasis of an exercise on a head (0 when the head's group is not worked at all) */
+/** bench angles offered in the PRO editor (degrees; negative = decline) */
+export const BENCH_ANGLES = [-15, 0, 15, 30, 45] as const;
+
+/** range of motion (PRO): lengthened partials grow a bit more, shortened partials less */
+export const ROMS = {
+  full: { label: "Completa", mul: 1 },
+  long: { label: "Parcial alongada", mul: 1.08 },
+  short: { label: "Parcial encurtada", mul: 0.75 },
+} as const;
+export type Rom = keyof typeof ROMS;
+
+/** chest and front delt emphasis for a press at a given bench angle */
+export function benchProfile(angle: number): Partial<Record<Head, number>> {
+  const c = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+  return {
+    chest_upper: c(0.55 + 0.015 * angle, 0.25, 1),
+    chest_mid: c(1 - Math.max(0, angle - 15) * 0.015 - Math.max(0, -angle) * 0.013, 0.5, 1),
+    chest_lower: c(0.75 - 0.017 * angle, 0.2, 1),
+    delt_front: c(0.5 + 0.012 * angle, 0.2, 1),
+  };
+}
+
+/** emphasis of one plan item on a head: grip variant and (PRO) bench angle */
+export function itemEmphasis(
+  e: Exercise,
+  h: Head,
+  mods: { variant?: string | undefined; angle?: number | undefined } = {},
+): number {
+  const base = headEmphasis(e, h, mods.variant);
+  if (base === 0 || e.bench == null || mods.angle == null || mods.angle === e.bench) return base;
+  return benchProfile(mods.angle)[h] ?? base;
+}
+
 export function headEmphasis(e: Exercise, h: Head, variant?: string): number {
   const g = HEADS[h].group;
   if (!e.primary.includes(g) && !e.secondary.includes(g)) return 0;

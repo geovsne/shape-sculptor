@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DAYS, DAYS_FULL, EX_BY_ID, MUSCLES } from "@/lib/training";
+import { BENCH_ANGLES, DAYS, DAYS_FULL, EX_BY_ID, MUSCLES, ROMS, type Rom } from "@/lib/training";
 import {
   INTENSITIES,
   INTENSITY_IDS,
@@ -19,11 +19,13 @@ export function RoutineEditor({
   setPlan,
   sim,
   pro,
+  onUnlock,
 }: {
   plan: Plan;
   setPlan: (fn: (p: Plan) => Plan) => void;
   sim: SimState;
   pro: boolean;
+  onUnlock: () => void;
 }) {
   const [day, setDay] = useState(0);
   const [picking, setPicking] = useState(false);
@@ -176,22 +178,52 @@ export function RoutineEditor({
               {e.variants && (
                 <div className="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label="Pegada">
                   {e.variants.map((v, vi) => {
-                    const on = (item.variant ?? e.variants![0]?.id) === v.id;
+                    const on = ((pro && item.variant) || e.variants![0]?.id) === v.id;
                     return (
                       <button
                         key={v.id}
                         type="button"
                         role="radio"
                         aria-checked={on}
-                        onClick={() => update(idx, { variant: vi === 0 ? undefined : v.id })}
+                        title={!pro && vi > 0 ? "Variações de pegada são PRO" : undefined}
+                        onClick={() =>
+                          !pro && vi > 0
+                            ? onUnlock()
+                            : update(idx, { variant: vi === 0 ? undefined : v.id })
+                        }
                         className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${on ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:text-foreground"}`}
                       >
                         {v.label}
+                        {!pro && vi > 0 && " 🔒"}
                       </button>
                     );
                   })}
                 </div>
               )}
+              {e.bench != null && (
+                <ChipRow
+                  label="Banco"
+                  items={BENCH_ANGLES.map((a) => ({
+                    id: String(a),
+                    label: a === 0 ? "Reto" : `${a}°`,
+                    locked: !pro && a !== e.bench,
+                  }))}
+                  value={String(pro && item.angle != null ? item.angle : e.bench)}
+                  onPick={(id) => update(idx, { angle: +id === e.bench ? undefined : +id })}
+                  onLocked={onUnlock}
+                />
+              )}
+              <ChipRow
+                label="Amplitude"
+                items={(Object.keys(ROMS) as Rom[]).map((k) => ({
+                  id: k,
+                  label: ROMS[k].label,
+                  locked: !pro && k !== "full",
+                }))}
+                value={pro && item.rom ? item.rom : "full"}
+                onPick={(id) => update(idx, { rom: id === "full" ? undefined : (id as Rom) })}
+                onLocked={onUnlock}
+              />
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div className="flex items-center gap-1.5">
                   <Stepper
@@ -288,6 +320,39 @@ export function RoutineEditor({
           onClose={() => setPicking(false)}
         />
       )}
+    </div>
+  );
+}
+
+function ChipRow({
+  label,
+  items,
+  value,
+  onPick,
+  onLocked,
+}: {
+  label: string;
+  items: { id: string; label: string; locked: boolean }[];
+  value: string;
+  onPick: (id: string) => void;
+  onLocked: () => void;
+}) {
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1" role="radiogroup" aria-label={label}>
+      <span className="mr-0.5 text-[10px] text-muted-foreground">{label}</span>
+      {items.map((it) => (
+        <button
+          key={it.id}
+          type="button"
+          role="radio"
+          aria-checked={value === it.id}
+          onClick={() => (it.locked ? onLocked() : onPick(it.id))}
+          className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${value === it.id ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:text-foreground"}`}
+        >
+          {it.label}
+          {it.locked && " 🔒"}
+        </button>
+      ))}
     </div>
   );
 }

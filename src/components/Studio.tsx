@@ -308,7 +308,13 @@ export function Studio() {
 
               <div className="mt-4 flex min-h-[420px] flex-1 flex-col overflow-y-auto lg:min-h-0">
                 {tab === "rotina" && (
-                  <RoutineEditor plan={plan} setPlan={setPlan} sim={sim} pro={pro} />
+                  <RoutineEditor
+                    plan={plan}
+                    setPlan={setPlan}
+                    sim={sim}
+                    pro={pro}
+                    onUnlock={() => setProModal(true)}
+                  />
                 )}
                 {tab === "dieta" && (
                   <DietPanel
