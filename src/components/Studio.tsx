@@ -7,7 +7,7 @@ import {
 } from "@/lib/training";
 
 const EQUIPS: (Equip | "Todos")[] = ["Todos", "Máquina", "Peso livre", "Cabo", "Corporal"];
-const lerp = (a: number[], b: number[], t: number) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const lerp = (a: number[], b: number[], t: number) => a.map((v, i) => Math.round(v + ((b[i] ?? v) - v) * t));
 const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
 
 function Pill({ active, children, onClick }: { active?: boolean; children: React.ReactNode; onClick?: () => void }) {
@@ -36,7 +36,7 @@ export function Studio() {
 
   const [profile, setProfile] = useState<Profile>({ sex: "m", height: 178, weight: 78, bf: 16 });
   const [sim, setSim] = useState<SimState | null>(null);
-  const [plan, setPlan] = useState<Plan>(PRESETS.shoulders.plan());
+  const [plan, setPlan] = useState<Plan>(PRESETS["shoulders"]!.plan());
   const [day, setDay] = useState(0);
   const [pro, setPro] = useState(false);
   const [diet, setDiet] = useState<Diet>("manutencao");
@@ -66,7 +66,7 @@ export function Studio() {
   return (
     <div className="relative h-screen w-full overflow-hidden bg-background font-body text-foreground">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
-      <div className="absolute inset-0"><Viewer profile={curProfile} dev={dev} skin={skin} colorFor={colorFor} injured={sim?.injured} onPick={(m) => { setMuscle(m); setMode("explore"); setExId(null); }} /></div>
+      <div className="absolute inset-0"><Viewer profile={curProfile} dev={dev} skin={skin} colorFor={colorFor} injured={sim?.injured ?? {}} onPick={(m) => { setMuscle(m); setMode("explore"); setExId(null); }} /></div>
 
       {/* Top bar */}
       <header className="absolute inset-x-0 top-0 flex items-center justify-between px-8 py-6">
@@ -137,15 +137,15 @@ export function Studio() {
               {DAYS.map((d, i) => (
                 <button key={d} onClick={() => setDay(i)} className={`rounded-xl py-2 text-center transition-all ${day === i ? "bg-foreground text-background" : "bg-secondary"}`}>
                   <div className="text-[10px] font-semibold">{d}</div>
-                  <div className="text-[10px] opacity-60">{plan[i].length || "–"}</div>
+                  <div className="text-[10px] opacity-60">{(plan[i] ?? []).length || "–"}</div>
                 </button>
               ))}
             </div>
             <div className="mt-3 space-y-1.5">
-              {plan[day].length === 0 && <div className="rounded-2xl border border-dashed p-3 text-center text-xs text-muted-foreground">Descanso — adicione exercícios abaixo</div>}
-              {plan[day].map((it, idx) => (
+              {(plan[day] ?? []).length === 0 && <div className="rounded-2xl border border-dashed p-3 text-center text-xs text-muted-foreground">Descanso — adicione exercícios abaixo</div>}
+              {(plan[day] ?? []).map((it, idx) => (
                 <div key={idx} className="flex items-center gap-2 rounded-2xl bg-secondary px-3 py-2">
-                  <span className="flex-1 truncate text-xs font-medium">{EX_BY_ID[it.exId].name}</span>
+                  <span className="flex-1 truncate text-xs font-medium">{EX_BY_ID[it.exId]?.name}</span>
                   <input type="number" min={1} max={10} value={it.sets} onChange={(e) => setPlan((p) => p.map((d, i) => (i === day ? d.map((x, j) => (j === idx ? { ...x, sets: +e.target.value } : x)) : d)))} className="w-10 rounded-lg bg-background px-1 py-0.5 text-center text-xs" />
                   <span className="text-[10px] text-muted-foreground">séries</span>
                   <button onClick={() => setPlan((p) => p.map((d, i) => (i === day ? d.filter((_, j) => j !== idx) : d)))} className="text-muted-foreground hover:text-destructive">×</button>
