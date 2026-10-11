@@ -78,7 +78,7 @@ function loadSaved(): Partial<Saved> {
 
 export function Studio() {
   const [mode, setMode] = useState<"explore" | "sim">("sim");
-  const [skin, setSkin] = useState(1);
+  const [skin, setSkin] = useState(0);
   const [muscle, setMuscle] = useState<Muscle | null>(null);
   const [equip, setEquip] = useState<(typeof EQUIPS)[number]>("Todos");
   const [exId, setExIdState] = useState<string | null>("ohp");
@@ -247,7 +247,7 @@ export function Studio() {
               key={k}
               onClick={() => {
                 setMode(k);
-                setSkin(k === "explore" ? 0 : 1);
+                if (k === "explore") setSkin(0);
               }}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all lg:px-5 ${mode === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
             >
