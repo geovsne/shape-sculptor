@@ -4,7 +4,7 @@ import { Body, type BodyProps } from "./Body";
 
 export function Viewer(props: BodyProps) {
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 1.15, 2.6], fov: 35 }}>
+    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 1.0, 3.6], fov: 32 }}>
       <ambientLight intensity={0.6} />
       <directionalLight position={[2, 4, 3]} intensity={1.6} castShadow shadow-mapSize={[1024, 1024]} />
       <directionalLight position={[-3, 2, -2]} intensity={0.8} color="#cfe3ff" />
