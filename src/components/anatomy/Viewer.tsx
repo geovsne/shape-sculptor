@@ -1,10 +1,36 @@
-import { Canvas } from "@react-three/fiber";
+import { useEffect, type MutableRefObject } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
 import { Body, type BodyProps } from "./Body";
 
-export function Viewer(props: BodyProps) {
+/** returns a front-view snapshot of the body (data URL), whatever the user's orbit is */
+export type CaptureFn = () => string;
+
+function Capture({ apiRef }: { apiRef: MutableRefObject<CaptureFn | null> }) {
+  const { gl, scene, size } = useThree();
+  useEffect(() => {
+    apiRef.current = () => {
+      const cam = new THREE.PerspectiveCamera(30, size.width / size.height, 0.1, 50);
+      cam.position.set(0, 0.92, 3.45);
+      cam.lookAt(0, 0.9, 0);
+      gl.render(scene, cam);
+      return gl.domElement.toDataURL("image/png");
+    };
+    return () => {
+      apiRef.current = null;
+    };
+  }, [gl, scene, size, apiRef]);
+  return null;
+}
+
+export function Viewer({
+  captureRef,
+  ...props
+}: BodyProps & { captureRef?: MutableRefObject<CaptureFn | null> }) {
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 1.0, 3.6], fov: 32 }}>
+      {captureRef && <Capture apiRef={captureRef} />}
       <ambientLight intensity={0.6} />
       <directionalLight
         position={[2, 4, 3]}

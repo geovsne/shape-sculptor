@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { composeShare, shareOrDownload, shrinkSnapshot } from "@/lib/share";
 import { Link } from "@tanstack/react-router";
-import { Viewer } from "./anatomy/Viewer";
+import { Viewer, type CaptureFn } from "./anatomy/Viewer";
 import {
   EXERCISES,
   EX_BY_ID,
@@ -39,6 +40,38 @@ const lerp = (a: number[], b: number[], t: number) =>
 const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
 type Tab = "rotina" | "dieta" | "hormonios";
 
+/* progress is kept in this browser so a reload doesn't lose the avatar */
+const SAVE_KEY = "myolab:save:v1";
+type Saved = {
+  profile: Profile;
+  sim: SimState | null;
+  plan: Plan;
+  pro: boolean;
+  nutrition: Nutrition;
+  hormone: HormoneLevel;
+  /** front snapshot of the avatar at week 0 (small JPEG data URL) */
+  before?: string | null;
+};
+const DEFAULT_PROFILE: Profile = { sex: "m", height: 178, weight: 78, bf: 16 };
+const DEFAULT_NUTRITION: Nutrition = { kcal: 2600, protein: 1.8 };
+function loadSaved(): Partial<Saved> {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return {};
+    const s = JSON.parse(raw) as Partial<Saved>;
+    // older saves may miss newer muscle heads: fill them from their group
+    if (s.sim)
+      for (const h of HEAD_IDS)
+        if (typeof s.sim.headDev?.[h] !== "number") {
+          s.sim.headDev = s.sim.headDev ?? ({} as Record<Head, number>);
+          s.sim.headDev[h] = s.sim.dev?.[HEADS[h].group] ?? 0.25;
+        }
+    return s;
+  } catch {
+    return {};
+  }
+}
+
 export function Studio() {
   const [mode, setMode] = useState<"explore" | "sim">("sim");
   const [skin, setSkin] = useState(1);
@@ -52,15 +85,49 @@ export function Studio() {
   };
   const [pickedHead, setPickedHead] = useState<Head | null>(null);
 
-  const [profile, setProfile] = useState<Profile>({ sex: "m", height: 178, weight: 78, bf: 16 });
-  const [sim, setSim] = useState<SimState | null>(null);
-  const [plan, setPlanState] = useState<Plan>(PRESETS["upperLower"]!.plan());
+  const [saved] = useState(loadSaved);
+  const [profile, setProfile] = useState<Profile>(saved.profile ?? DEFAULT_PROFILE);
+  const [sim, setSim] = useState<SimState | null>(saved.sim ?? null);
+  const [plan, setPlanState] = useState<Plan>(saved.plan ?? PRESETS["upperLower"]!.plan());
   const setPlan = (fn: (p: Plan) => Plan) => setPlanState(fn);
   const [tab, setTab] = useState<Tab>("rotina");
-  const [pro, setPro] = useState(false);
-  const [nutrition, setNutrition] = useState<Nutrition>({ kcal: 2600, protein: 1.8 });
-  const [hormone, setHormone] = useState<HormoneLevel>("nenhum");
+  const [pro, setPro] = useState(saved.pro ?? false);
+  const [nutrition, setNutrition] = useState<Nutrition>({
+    ...DEFAULT_NUTRITION,
+    ...saved.nutrition,
+  });
+  const [hormone, setHormone] = useState<HormoneLevel>(saved.hormone ?? "nenhum");
   const [proModal, setProModal] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [before, setBefore] = useState<string | null>(saved.before ?? null);
+  const [sharing, setSharing] = useState(false);
+  const captureRef = useRef<CaptureFn | null>(null);
+
+  useEffect(() => {
+    try {
+      const data: Saved = { profile, sim, plan, pro, nutrition, hormone, before };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch {
+      /* storage unavailable (private mode): progress just isn't kept */
+    }
+  }, [profile, sim, plan, pro, nutrition, hormone, before]);
+
+  const resetAll = () => {
+    try {
+      localStorage.removeItem(SAVE_KEY);
+    } catch {
+      /* ignore */
+    }
+    setProfile(DEFAULT_PROFILE);
+    setSim(null);
+    setPlanState(PRESETS["upperLower"]!.plan());
+    setPro(false);
+    setNutrition(DEFAULT_NUTRITION);
+    setHormone("nenhum");
+    setTab("rotina");
+    setConfirmReset(false);
+    setBefore(null);
+  };
 
   const opts: Options = { pro, nutrition, hormone };
   const ex = exId ? EX_BY_ID[exId] : null;
@@ -105,11 +172,35 @@ export function Studio() {
 
   const simulate = (weeks: number) => {
     if (!sim) return;
+    // keep a picture of the starting body for the before/after card
+    if (sim.week === 0 && captureRef.current) {
+      const shot = captureRef.current();
+      void shrinkSnapshot(shot)
+        .then(setBefore)
+        .catch(() => setBefore(null));
+    }
     let s = sim;
     for (let i = 0; i < weeks; i++) s = advanceWeek(s, plan, opts);
     setSim(s);
   };
+  const shareEvolution = async () => {
+    if (!sim || !before || !captureRef.current || sharing) return;
+    setSharing(true);
+    try {
+      const after = await shrinkSnapshot(captureRef.current());
+      const h0 = sim.history[0]!;
+      const blob = await composeShare(before, after, {
+        week: sim.week,
+        before: { weight: h0.weight, bf: h0.bf, lean: h0.lean },
+        after: { weight: sim.profile.weight, bf: sim.profile.bf, lean: sim.leanKg },
+      });
+      await shareOrDownload(blob);
+    } finally {
+      setSharing(false);
+    }
+  };
   const createAvatar = () => {
+    setBefore(null);
     setSim(initSim(profile));
     setNutrition({ kcal: Math.round(tdee(profile, plan) / 50) * 50 + 300, protein: 1.8 });
   };
@@ -119,6 +210,7 @@ export function Studio() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
       <div className="relative h-[60vh] lg:absolute lg:inset-0 lg:h-auto">
         <Viewer
+          captureRef={captureRef}
           profile={preview.profile}
           headDev={headDev}
           neutral={mode === "explore" ? "#d9b8ae" : "#b0675c"}
@@ -297,6 +389,14 @@ export function Studio() {
                     </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => (confirmReset ? resetAll() : setConfirmReset(true))}
+                  onBlur={() => setConfirmReset(false)}
+                  className={`text-xs ${confirmReset ? "font-semibold text-destructive" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {confirmReset ? "Confirmar: apagar tudo?" : "Reiniciar"}
+                </button>
                 <button
                   type="button"
                   onClick={() => setSim(null)}
@@ -510,7 +610,19 @@ export function Studio() {
               )}
             </>
           ) : sim ? (
-            <StatusPanel sim={sim} analysis={analysis} />
+            <>
+              {sim.week > 0 && before && (
+                <button
+                  type="button"
+                  onClick={() => void shareEvolution()}
+                  disabled={sharing}
+                  className="mb-4 w-full rounded-full bg-foreground py-2.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                >
+                  {sharing ? "Gerando imagem…" : "Compartilhar antes e depois"}
+                </button>
+              )}
+              <StatusPanel sim={sim} analysis={analysis} />
+            </>
           ) : (
             <div className="space-y-3 text-sm text-muted-foreground">
               <p>Defina sexo, altura, peso e BF para gerar o avatar.</p>
