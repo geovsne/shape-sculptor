@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Atlas and simulator share the muscle surface material in `muscleMaterial.ts`; keep fibre shading in one place to prevent visual drift.
+- Atlas muscle detail is derived from each anatomical part without replacing its mesh, so selection and all anatomical layers stay aligned.
