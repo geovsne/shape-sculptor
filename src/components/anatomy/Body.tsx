@@ -1,79 +1,9 @@
-import { useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Muscle, Profile } from "@/lib/training";
-
-type Part = {
-  m?: Muscle;
-  p: [number, number, number];
-  s: [number, number, number];
-  r?: [number, number, number] | undefined;
-  mirror?: boolean;
-};
-
-// Muscle volumes (reference body 1.75m). Right side mirrored automatically.
-const MUSCLE_PARTS: Part[] = [
-  { m: "chest", p: [0.085, 1.3, 0.085], s: [0.1, 0.07, 0.045], r: [0, 0, -0.15], mirror: true },
-  { m: "frontDelts", p: [0.195, 1.37, 0.045], s: [0.045, 0.065, 0.045], mirror: true },
-  { m: "sideDelts", p: [0.225, 1.36, 0], s: [0.042, 0.07, 0.05], r: [0, 0, 0.25], mirror: true },
-  { m: "rearDelts", p: [0.195, 1.37, -0.045], s: [0.045, 0.06, 0.042], mirror: true },
-  { m: "traps", p: [0.065, 1.42, -0.03], s: [0.085, 0.05, 0.045], r: [0, 0, -0.35], mirror: true },
-  { m: "traps", p: [0, 1.3, -0.075], s: [0.06, 0.1, 0.025] },
-  { m: "lats", p: [0.105, 1.18, -0.06], s: [0.075, 0.14, 0.04], r: [0, 0, 0.15], mirror: true },
-  { m: "lowerBack", p: [0.035, 1.02, -0.07], s: [0.035, 0.08, 0.03], mirror: true },
-  { m: "abs", p: [0.035, 1.12, 0.085], s: [0.035, 0.05, 0.025], mirror: true },
-  { m: "abs", p: [0.035, 1.02, 0.085], s: [0.035, 0.05, 0.025], mirror: true },
-  { m: "obliques", p: [0.115, 1.05, 0.035], s: [0.04, 0.1, 0.045], mirror: true },
-  { m: "biceps", p: [0.245, 1.17, 0.025], s: [0.038, 0.09, 0.04], mirror: true },
-  { m: "triceps", p: [0.245, 1.18, -0.028], s: [0.042, 0.1, 0.042], mirror: true },
-  {
-    m: "forearms",
-    p: [0.265, 0.94, 0.005],
-    s: [0.034, 0.12, 0.036],
-    r: [0, 0, 0.05],
-    mirror: true,
-  },
-  { m: "glutes", p: [0.075, 0.89, -0.07], s: [0.08, 0.08, 0.06], mirror: true },
-  { m: "quads", p: [0.095, 0.66, 0.025], s: [0.07, 0.17, 0.065], r: [0, 0, 0.04], mirror: true },
-  {
-    m: "hamstrings",
-    p: [0.095, 0.66, -0.035],
-    s: [0.062, 0.16, 0.055],
-    r: [0, 0, 0.04],
-    mirror: true,
-  },
-  { m: "calves", p: [0.085, 0.27, -0.025], s: [0.045, 0.1, 0.05], mirror: true },
-];
-
-// Neutral structure (bones/joints) that fills gaps
-const BASE_PARTS: Part[] = [
-  { p: [0, 1.63, 0.005], s: [0.09, 0.115, 0.1] },
-  { p: [0, 1.49, -0.005], s: [0.045, 0.06, 0.045] },
-  { p: [0, 1.2, 0], s: [0.15, 0.21, 0.085] },
-  { p: [0, 0.93, 0], s: [0.15, 0.09, 0.085] },
-  { p: [0.255, 1.06, 0], s: [0.03, 0.04, 0.03], mirror: true },
-  { p: [0.275, 0.78, 0.01], s: [0.03, 0.06, 0.018], mirror: true },
-  { p: [0.09, 0.47, 0.005], s: [0.045, 0.05, 0.045], mirror: true },
-  { p: [0.085, 0.27, 0.015], s: [0.035, 0.15, 0.035], mirror: true },
-  { p: [0.085, 0.04, 0.04], s: [0.04, 0.03, 0.1], mirror: true },
-];
-
-const expand = (parts: Part[]) =>
-  parts.flatMap((pt) =>
-    pt.mirror
-      ? [
-          pt,
-          {
-            ...pt,
-            p: [-pt.p[0], pt.p[1], pt.p[2]] as Part["p"],
-            r: pt.r ? ([pt.r[0], -pt.r[1], -pt.r[2]] as Part["r"]) : undefined,
-          },
-        ]
-      : [pt],
-  );
-const MP = expand(MUSCLE_PARTS);
-const BP = expand(BASE_PARTS);
-const sphere = new THREE.SphereGeometry(1, 28, 20);
+import { MUSCLE_IDS } from "@/lib/training";
+import { deform, leanness, loadBody, STATIC_GROUP, TENDON_GROUP, type BodyModel } from "./model";
 
 export type BodyProps = {
   profile: Profile;
@@ -81,127 +11,250 @@ export type BodyProps = {
   skin: number; // 0..1 opacity
   colorFor: (m: Muscle) => string;
   injured?: Partial<Record<Muscle, number>>;
+  tendonInjured?: Partial<Record<Muscle, number>>;
   onPick?: (m: Muscle) => void;
+  onLoaded?: () => void;
 };
 
-export function Body({ profile, dev, skin, colorFor, injured = {}, onPick }: BodyProps) {
+const STATIC_COLOR = new THREE.Color("#a5554c");
+const TENDON_COLOR = new THREE.Color("#e9e1d2");
+const INJURY_COLOR = new THREE.Color("#3a0606");
+const TENDON_INJURY_COLOR = new THREE.Color("#ffb020");
+const HOVER_COLOR = new THREE.Color("#ff6a2a");
+
+/** procedural muscle fibres as a normal perturbation (no textures needed) */
+function withFibers(mat: THREE.MeshPhysicalMaterial, strength: number) {
+  mat.userData["fiber"] = { value: strength };
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms["uFiber"] = mat.userData["fiber"];
+    sh.vertexShader = sh.vertexShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nattribute vec3 fiber;\nattribute float fiberMask;\nvarying vec3 vFiber;\nvarying vec3 vPosW;\nvarying float vMask;",
+      )
+      .replace(
+        "#include <project_vertex>",
+        "#include <project_vertex>\nvFiber = normalize(mat3(modelMatrix) * fiber);\nvPosW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvMask = fiberMask;",
+      );
+    sh.fragmentShader = sh.fragmentShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nuniform float uFiber;\nvarying vec3 vFiber;\nvarying vec3 vPosW;\nvarying float vMask;",
+      )
+      .replace(
+        "#include <normal_fragment_maps>",
+        `#include <normal_fragment_maps>
+        {
+          vec3 fW = normalize(vFiber);
+          vec3 refAxis = abs(fW.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+          vec3 p1 = normalize(cross(fW, refAxis));
+          vec3 p2 = cross(fW, p1);
+          float u = dot(vPosW, p1) * 1500.0 + 2.6 * sin(dot(vPosW, p2) * 260.0) + 1.4 * sin(dot(vPosW, fW) * 55.0);
+          float fade = 1.0 - smoothstep(0.7, 2.4, fwidth(u));
+          float s = sin(u) * 0.6 + sin(u * 2.17 + 1.3) * 0.4;
+          vec3 bV = normalize((viewMatrix * vec4(p1, 0.0)).xyz);
+          normal = normalize(normal + bV * s * uFiber * vMask * fade);
+        }`,
+      );
+  };
+  return mat;
+}
+
+function buildGeometries(m: BodyModel) {
+  const muscle = new THREE.BufferGeometry();
+  muscle.setAttribute("position", new THREE.BufferAttribute(m.muscle.pos.slice(), 3));
+  muscle.setAttribute("normal", new THREE.BufferAttribute(m.muscle.nrm.slice(), 3));
+  muscle.setAttribute("color", new THREE.BufferAttribute(new Float32Array(m.muscle.pos.length), 3));
+  muscle.setAttribute("fiber", new THREE.BufferAttribute(m.muscle.fiber, 3));
+  const mask = new Float32Array(m.muscle.end.length);
+  for (let i = 0; i < mask.length; i++) mask[i] = 1 - Math.min(1, m.muscle.end[i]! * 1.1);
+  muscle.setAttribute("fiberMask", new THREE.BufferAttribute(mask, 1));
+  muscle.setIndex(new THREE.BufferAttribute(m.muscle.idx, 1));
+
+  const bone = new THREE.BufferGeometry();
+  bone.setAttribute("position", new THREE.BufferAttribute(m.bone.pos, 3));
+  bone.setAttribute("normal", new THREE.BufferAttribute(m.bone.nrm, 3));
+  bone.setIndex(new THREE.BufferAttribute(m.bone.idx, 1));
+
+  const skin = new THREE.BufferGeometry();
+  skin.setAttribute("position", new THREE.BufferAttribute(m.skin.pos.slice(), 3));
+  skin.setAttribute("normal", new THREE.BufferAttribute(m.skin.nrm.slice(), 3));
+  skin.setAttribute("fiber", new THREE.BufferAttribute(m.skin.fiber, 3));
+  skin.setAttribute("fiberMask", new THREE.BufferAttribute(m.skin.bindSum, 1));
+  skin.setIndex(new THREE.BufferAttribute(m.skin.idx, 1));
+  return { muscle, bone, skin };
+}
+
+export function Body({
+  profile,
+  dev,
+  skin,
+  colorFor,
+  injured = {},
+  tendonInjured = {},
+  onPick,
+  onLoaded,
+}: BodyProps) {
   const group = useRef<THREE.Group>(null);
+  const [model, setModel] = useState<BodyModel | null>(null);
   const [hover, setHover] = useState<Muscle | null>(null);
-  const f = profile.sex === "f";
-  const hScale = profile.height / 175;
-  const bmi = profile.weight / Math.pow(profile.height / 100, 2);
-  const girth = Math.max(0.8, Math.min(1.4, bmi / 23)) * (f ? 0.9 : 1);
-  const fat = profile.bf / 100;
+  const sex = profile.sex;
+
+  useEffect(() => {
+    let alive = true;
+    setModel(null);
+    loadBody(sex)
+      .then((m) => {
+        if (alive) {
+          setModel(m);
+          onLoaded?.();
+        }
+      })
+      .catch((e) => console.error(e));
+    return () => {
+      alive = false;
+    };
+  }, [sex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const geo = useMemo(() => (model ? buildGeometries(model) : null), [model]);
+  useEffect(
+    () => () => {
+      geo?.muscle.dispose();
+      geo?.bone.dispose();
+      geo?.skin.dispose();
+    },
+    [geo],
+  );
+
+  const mats = useMemo(() => {
+    const muscle = withFibers(
+      new THREE.MeshPhysicalMaterial({
+        vertexColors: true,
+        roughness: 0.42,
+        clearcoat: 0.55,
+        clearcoatRoughness: 0.35,
+        sheen: 0.6,
+        sheenColor: new THREE.Color("#ffd6c7"),
+      }),
+      0.32,
+    );
+    const skinMat = withFibers(
+      new THREE.MeshPhysicalMaterial({
+        color: sex === "m" ? "#d9a98c" : "#e3b59b",
+        roughness: 0.55,
+        sheen: 0.4,
+        sheenColor: new THREE.Color("#ffe3d6"),
+        clearcoat: 0.12,
+        transparent: true,
+      }),
+      0,
+    );
+    const bone = new THREE.MeshStandardMaterial({ color: "#ebe4d3", roughness: 0.6 });
+    return { muscle, skin: skinMat, bone };
+  }, [sex]);
+  useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
+
+  // shape: muscle growth and body fat
+  const devKey = MUSCLE_IDS.map((m) => dev[m].toFixed(3)).join(",");
+  useEffect(() => {
+    if (!model || !geo) return;
+    const mp = geo.muscle.getAttribute("position") as THREE.BufferAttribute;
+    const sp = geo.skin.getAttribute("position") as THREE.BufferAttribute;
+    deform(model, dev, profile.bf, {
+      muscle: mp.array as Float32Array,
+      skin: sp.array as Float32Array,
+    });
+    mp.needsUpdate = true;
+    sp.needsUpdate = true;
+    geo.muscle.computeVertexNormals();
+    geo.skin.computeVertexNormals();
+    geo.muscle.computeBoundingSphere();
+    geo.skin.computeBoundingSphere();
+    mats.skin.userData["fiber"].value = 0.16 * leanness(profile.bf, sex);
+  }, [model, geo, devKey, profile.bf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // colours
+  const colorKey =
+    MUSCLE_IDS.map((m) => colorFor(m)).join() +
+    JSON.stringify(injured) +
+    JSON.stringify(tendonInjured) +
+    hover;
+  useEffect(() => {
+    if (!model || !geo) return;
+    const col = geo.muscle.getAttribute("color") as THREE.BufferAttribute;
+    const arr = col.array as Float32Array;
+    const groups = model.header.groups;
+    const base = groups.map((g) => new THREE.Color(colorFor(g)));
+    const c = new THREE.Color();
+    for (let i = 0; i < model.muscle.group.length; i++) {
+      const gi = model.muscle.group[i]!;
+      const end = model.muscle.end[i]!;
+      if (gi === TENDON_GROUP) c.copy(TENDON_COLOR);
+      else if (gi === STATIC_GROUP) c.copy(STATIC_COLOR);
+      else {
+        const g = groups[gi]!;
+        c.copy(base[gi]!);
+        if (hover === g) c.lerp(HOVER_COLOR, 0.45);
+        if ((injured[g] ?? 0) > 0) c.lerp(INJURY_COLOR, 0.75);
+      }
+      // tendinous ends are pale
+      const t = Math.min(1, Math.max(0, (end - 0.82) / 0.16));
+      c.lerp(TENDON_COLOR, t * 0.85);
+      if (gi < 200 && (tendonInjured[groups[gi]!] ?? 0) > 0 && end > 0.7)
+        c.copy(TENDON_INJURY_COLOR);
+      arr[i * 3] = c.r;
+      arr[i * 3 + 1] = c.g;
+      arr[i * 3 + 2] = c.b;
+    }
+    col.needsUpdate = true;
+  }, [model, geo, colorKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    mats.skin.opacity = skin;
+    mats.skin.depthWrite = skin > 0.95;
+    mats.skin.needsUpdate = true;
+  }, [skin, mats]);
 
   useFrame((st) => {
-    if (group.current) group.current.position.y = Math.sin(st.clock.elapsedTime * 1.4) * 0.004;
+    if (group.current) group.current.position.y = Math.sin(st.clock.elapsedTime * 1.4) * 0.003;
   });
 
-  const shape = (pt: Part, muscleGrow: number, extra = 1) => {
-    let [x, y, z] = pt.p;
-    let [sx, sy, sz] = pt.s;
-    if (f) {
-      if (y > 1.25) x *= 0.88;
-      if (pt.m === "glutes" || pt.m === "quads" || (y < 0.98 && y > 0.85)) {
-        x *= 1.12;
-        sx *= 1.12;
-      }
-      if (pt.m === "chest") {
-        sz *= 1.25;
-        sy *= 1.15;
-      }
-    }
-    const g = (0.75 + muscleGrow * 0.6) * extra;
-    return {
-      pos: [x * girth, y, z] as [number, number, number],
-      scale: [sx * g * girth, sy * (0.92 + muscleGrow * 0.15) * extra, sz * g * girth] as [
-        number,
-        number,
-        number,
-      ],
-    };
+  if (!model || !geo) return null;
+  const s = profile.height / 100 / model.header.height;
+
+  const groupAt = (e: ThreeEvent<PointerEvent | MouseEvent>): Muscle | null => {
+    const f = e.face;
+    if (!f) return null;
+    const gi = model.muscle.group[f.a]!;
+    return gi < 200 ? (model.header.groups[gi] ?? null) : null;
   };
 
   return (
-    <group ref={group} scale={[hScale, hScale, hScale]}>
-      {BP.map((pt, i) => {
-        const { pos, scale } = shape(pt, 0.4);
-        return (
-          <mesh
-            key={"b" + i}
-            geometry={sphere}
-            position={pos}
-            scale={scale}
-            rotation={pt.r ?? [0, 0, 0]}
-            castShadow
-          >
-            <meshPhysicalMaterial color="#e9e6e3" roughness={0.45} clearcoat={0.4} />
-          </mesh>
-        );
-      })}
-      {MP.map((pt, i) => {
-        const m = pt.m!;
-        const { pos, scale } = shape(pt, dev[m]);
-        const isHover = hover === m;
-        const inj = (injured[m] ?? 0) > 0;
-        return (
-          <mesh
-            key={"m" + i}
-            geometry={sphere}
-            position={pos}
-            scale={scale}
-            rotation={pt.r ?? [0, 0, 0]}
-            castShadow
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              setHover(m);
-              document.body.style.cursor = "pointer";
-            }}
-            onPointerOut={() => {
-              setHover(null);
-              document.body.style.cursor = "";
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPick?.(m);
-            }}
-          >
-            <meshPhysicalMaterial
-              color={inj ? "#2a0a0a" : colorFor(m)}
-              emissive={inj ? "#ff1a1a" : isHover ? "#ff5a1f" : "#000000"}
-              emissiveIntensity={inj ? 0.5 : isHover ? 0.35 : 0}
-              roughness={0.38}
-              clearcoat={0.8}
-              clearcoatRoughness={0.25}
-              sheen={1}
-              sheenColor="#ffd6c7"
-            />
-          </mesh>
-        );
-      })}
-      {skin > 0.01 &&
-        [...MP, ...BP].map((pt, i) => {
-          const { pos, scale } = shape(pt, pt.m ? dev[pt.m] : 0.4, 1.07 + fat * 0.9);
-          return (
-            <mesh
-              key={"s" + i}
-              geometry={sphere}
-              position={pos}
-              scale={scale}
-              rotation={pt.r ?? [0, 0, 0]}
-              raycast={() => null}
-            >
-              <meshPhysicalMaterial
-                color={f ? "#f3d9c9" : "#e8cbb5"}
-                roughness={0.55}
-                transparent
-                opacity={skin}
-                depthWrite={skin > 0.95}
-                clearcoat={0.3}
-              />
-            </mesh>
-          );
-        })}
+    <group ref={group} scale={[s, s, s]}>
+      <mesh geometry={geo.bone} material={mats.bone} castShadow raycast={() => null} />
+      <mesh
+        geometry={geo.muscle}
+        material={mats.muscle}
+        castShadow
+        onPointerMove={(e) => {
+          e.stopPropagation();
+          const g = groupAt(e);
+          if (g !== hover) setHover(g);
+          document.body.style.cursor = g ? "pointer" : "";
+        }}
+        onPointerOut={() => {
+          setHover(null);
+          document.body.style.cursor = "";
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          const g = groupAt(e);
+          if (g) onPick?.(g);
+        }}
+      />
+      {skin > 0.02 && (
+        <mesh geometry={geo.skin} material={mats.skin} raycast={() => null} renderOrder={2} />
+      )}
     </group>
   );
 }

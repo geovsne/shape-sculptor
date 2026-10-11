@@ -6,6 +6,7 @@ import {
   EX_BY_ID,
   MUSCLES,
   MUSCLE_IDS,
+  TENDONS,
   type Equip,
   type Muscle,
   type Profile,
@@ -16,7 +17,6 @@ import {
   tdee,
   analyzePlan,
   initSim,
-  injuredMuscles,
   type HormoneLevel,
   type Nutrition,
   type Options,
@@ -36,7 +36,7 @@ type Tab = "rotina" | "dieta" | "hormonios";
 
 export function Studio() {
   const [mode, setMode] = useState<"explore" | "sim">("sim");
-  const [skin, setSkin] = useState(0.35);
+  const [skin, setSkin] = useState(1);
   const [muscle, setMuscle] = useState<Muscle | null>(null);
   const [equip, setEquip] = useState<(typeof EQUIPS)[number]>("Todos");
   const [exId, setExId] = useState<string | null>("ohp");
@@ -64,8 +64,18 @@ export function Studio() {
     [plan, preview, pro, nutrition, hormone],
   ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dev = preview.dev;
-  const injured = sim ? injuredMuscles(sim) : {};
+  // DEBUG-OVERRIDE-START
+  const dbg = typeof window !== "undefined" && import.meta.env.DEV ? new URLSearchParams(window.location.search) : null;
+  const dev = { ...preview.dev };
+  dbg?.get("dev")?.split(",").forEach((kv) => { const [k, v] = kv.split(":"); if (k && v) (dev as Record<string, number>)[k] = +v; });
+  const dbgProfile = dbg?.get("sex") ? { ...preview.profile, sex: dbg.get("sex") as "m" | "f", bf: +(dbg.get("bf") ?? preview.profile.bf) } : dbg?.get("bf") ? { ...preview.profile, bf: +dbg.get("bf")! } : null;
+  // DEBUG-OVERRIDE-END
+  const injured: Partial<Record<Muscle, number>> = {};
+  const tendonInjured: Partial<Record<Muscle, number>> = {};
+  for (const i of sim?.injuries ?? []) {
+    if (i.target.type === "muscle") injured[i.target.m] = i.weeksLeft;
+    else for (const m of TENDONS[i.target.t].muscles) tendonInjured[m] = i.weeksLeft;
+  }
 
   const colorFor = (m: Muscle) => {
     if (mode === "explore") {
@@ -93,11 +103,12 @@ export function Studio() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
       <div className="relative h-[60vh] lg:absolute lg:inset-0 lg:h-auto">
         <Viewer
-          profile={preview.profile}
+          profile={dbgProfile ?? preview.profile}
           dev={dev}
           skin={skin}
           colorFor={colorFor}
           injured={injured}
+          tendonInjured={tendonInjured}
           onPick={(m) => {
             if (mode !== "explore") return;
             setMuscle(m);
@@ -120,7 +131,10 @@ export function Studio() {
             <button
               type="button"
               key={k}
-              onClick={() => setMode(k)}
+              onClick={() => {
+                setMode(k);
+                setSkin(k === "explore" ? 0 : 1);
+              }}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all lg:px-5 ${mode === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
             >
               {k === "explore" ? "Explorar músculos" : "Simulador"}
