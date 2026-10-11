@@ -1,0 +1,7 @@
+Modelos do atlas (atlas-*)
+
+Derivados de Z-Anatomy - The libre 3D atlas of anatomy - CC BY-SA 4.0
+https://github.com/Z-Anatomy/Models-of-human-anatomy
+baseado em BodyParts3D, (c) The Database Center for Life Science (CC BY-SA 2.1 Japan).
+Alterações: seleção de estruturas, redução de polígonos e conversão de formato.
+Distribuídos sob Creative Commons Attribution-ShareAlike 4.0 International.

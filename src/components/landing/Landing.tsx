@@ -149,10 +149,16 @@ export function Landing() {
               PRO
             </a>
             <Link
+              to="/atlas"
+              className="rounded-full px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              Atlas
+            </Link>
+            <Link
               to="/editor"
               className="rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background"
             >
-              Abrir simulador
+              Simulador
             </Link>
           </nav>
         </div>
