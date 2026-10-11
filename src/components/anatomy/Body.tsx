@@ -3,6 +3,7 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Head, Muscle, Profile } from "@/lib/training";
 import { HEADS, HEAD_IDS } from "@/lib/training";
+import { REF_FMI } from "@/lib/sim";
 import {
   deform,
   leanness,
@@ -287,7 +288,9 @@ export function Body({
     if (!model || !geo) return;
     const mp = geo.muscle.getAttribute("position") as THREE.BufferAttribute;
     const sp = geo.skin.getAttribute("position") as THREE.BufferAttribute;
-    deform(model, headDev, profile.bf, {
+    const h2 = (profile.height / 100) ** 2;
+    const fatRel = (profile.weight * profile.bf) / 100 / h2 / REF_FMI[sex];
+    deform(model, headDev, fatRel, {
       muscle: mp.array as Float32Array,
       skin: sp.array as Float32Array,
     });
@@ -307,7 +310,7 @@ export function Body({
     geo.skin.computeBoundingSphere();
     for (const g of [geo.shorts, geo.top, geo.cap]) g.computeBoundingSphere();
     mats.skin.userData["fiber"].value = 0.16 * leanness(profile.bf, sex);
-  }, [model, geo, devKey, profile.bf]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [model, geo, devKey, profile.bf, profile.weight, profile.height]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // colours
   const colorKey =

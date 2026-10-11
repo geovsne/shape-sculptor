@@ -238,7 +238,8 @@ export function growthOf(dev: number, sex: Sex) {
 export function deform(
   m: BodyModel,
   headDev: Record<Head, number>,
-  bf: number,
+  /** fat mass per height relative to the sculpted model (1 = as modelled) */
+  fatRel: number,
   out: { muscle: Float32Array; skin: Float32Array },
 ) {
   const { header: h, muscle: mu, skin: sk } = m;
@@ -266,6 +267,8 @@ export function deform(
   const regions = h.fatRegions;
   const R = regions.length;
   const dist = regions.map((r) => FAT_DIST[sex][r] ?? 0.5);
+  // body fat in "BF points" of the sculpted model: same height and fat kg = same look
+  const bf = Math.max(0.25, fatRel) * h.restBf;
   const fatScale = Math.pow(Math.max(3, bf) / h.restBf, 0.85) - 1;
   const K = h.bindK;
   const ns = sk.depth.length;

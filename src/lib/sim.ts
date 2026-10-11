@@ -412,8 +412,22 @@ export function groupDev(m: Muscle, hdev: Record<Head, number>) {
 const initHeads = (dev: Record<Muscle, number>) =>
   Object.fromEntries(HEAD_IDS.map((h) => [h, dev[HEADS[h].group]])) as Record<Head, number>;
 
+/** fat-free mass index of an untrained adult (kg/m²); development 0.25 (m) / 0.2 (f) */
+export const REF_FFMI = { m: 20, f: 16.5 } as const;
+/** fat mass index that the 3D model was sculpted at (kg/m²) */
+export const REF_FMI = { m: 2.9, f: 5.3 } as const;
+
+/** starting development from lean mass per height: heavier at the same BF = more muscle */
+export function baseDevFor(p: Profile) {
+  const h2 = (p.height / 100) ** 2;
+  const lean = p.weight * (1 - p.bf / 100);
+  const ref = p.sex === "m" ? 0.25 : 0.2;
+  const scale = p.sex === "m" ? LEAN_SCALE : LEAN_SCALE * 0.7;
+  return clamp(ref + (lean - REF_FFMI[p.sex] * h2) / scale, 0.05, 1);
+}
+
 export function initSim(p: Profile): SimState {
-  const base = p.sex === "m" ? 0.25 : 0.2;
+  const base = baseDevFor(p);
   const fatKg = round1((p.weight * p.bf) / 100);
   const seed = Math.round(p.height * 1000 + p.weight * 37 + p.bf * 101 + (p.sex === "m" ? 1 : 2));
   return {
