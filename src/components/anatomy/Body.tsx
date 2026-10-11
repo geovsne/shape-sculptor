@@ -85,7 +85,7 @@ export function Body({ profile, dev, skin, colorFor, injured = {}, onPick }: Bod
       {BP.map((pt, i) => {
         const { pos, scale } = shape(pt, 0.4);
         return (
-          <mesh key={"b" + i} geometry={sphere} position={pos} scale={scale} rotation={pt.r} castShadow>
+          <mesh key={"b" + i} geometry={sphere} position={pos} scale={scale} rotation={pt.r ?? [0, 0, 0]} castShadow>
             <meshPhysicalMaterial color="#e9e6e3" roughness={0.45} clearcoat={0.4} />
           </mesh>
         );
@@ -101,7 +101,7 @@ export function Body({ profile, dev, skin, colorFor, injured = {}, onPick }: Bod
             geometry={sphere}
             position={pos}
             scale={scale}
-            rotation={pt.r}
+            rotation={pt.r ?? [0, 0, 0]}
             castShadow
             onPointerOver={(e) => { e.stopPropagation(); setHover(m); document.body.style.cursor = "pointer"; }}
             onPointerOut={() => { setHover(null); document.body.style.cursor = ""; }}
@@ -124,7 +124,7 @@ export function Body({ profile, dev, skin, colorFor, injured = {}, onPick }: Bod
         [...MP, ...BP].map((pt, i) => {
           const { pos, scale } = shape(pt, pt.m ? dev[pt.m] : 0.4, 1.07 + fat * 0.9);
           return (
-            <mesh key={"s" + i} geometry={sphere} position={pos} scale={scale} rotation={pt.r} raycast={() => null}>
+            <mesh key={"s" + i} geometry={sphere} position={pos} scale={scale} rotation={pt.r ?? [0, 0, 0]} raycast={() => null}>
               <meshPhysicalMaterial
                 color={f ? "#f3d9c9" : "#e8cbb5"}
                 roughness={0.55}

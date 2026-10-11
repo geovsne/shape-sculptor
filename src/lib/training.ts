@@ -124,7 +124,7 @@ export function weeklyLoad(plan: Plan) {
 
 export function advanceWeek(s: SimState, plan: Plan, opts: { diet: Diet; protocol: number; pro: boolean }): SimState {
   const { sets, streak } = weeklyLoad(plan);
-  const prot = PROTOCOLS[opts.pro ? opts.protocol : 0];
+  const prot = PROTOCOLS[opts.pro ? opts.protocol : 0] ?? PROTOCOLS[0]!;
   const rec = 1 + prot.recovery;
   const dietMul = !opts.pro ? 1 : opts.diet === "superavit" ? 1.25 : opts.diet === "deficit" ? 0.65 : 1;
   const dev = { ...s.dev };
