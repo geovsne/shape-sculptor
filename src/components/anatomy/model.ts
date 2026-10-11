@@ -52,7 +52,24 @@ export type BodyModel = {
   };
   bone: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array };
   eye: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array; kind: Float32Array };
-  hair: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array };
+  /** brows/lashes (kind 0), hair mass (1), hair tie (2); each vertex follows one skin vertex */
+  hair: {
+    pos: Float32Array;
+    nrm: Float32Array;
+    idx: Uint32Array;
+    bind: Uint32Array;
+    kind: Uint8Array;
+    dir: Float32Array;
+  };
+  /** clothes: shorts (kind 0) and sports bra (1); band = waistband / hem (0..1) */
+  garment: {
+    pos: Float32Array;
+    nrm: Float32Array;
+    idx: Uint32Array;
+    bind: Uint32Array;
+    kind: Uint8Array;
+    band: Float32Array;
+  };
   skin: {
     pos: Float32Array;
     nrm: Float32Array;
@@ -177,7 +194,22 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
       idx: raw("eye.idx") as Uint32Array,
       kind: scaled("eye.kind", 2, 255),
     },
-    hair: { pos: pos("hair.pos"), nrm: unit("hair.nrm"), idx: raw("hair.idx") as Uint32Array },
+    hair: {
+      pos: pos("hair.pos"),
+      nrm: unit("hair.nrm"),
+      idx: raw("hair.idx") as Uint32Array,
+      bind: raw("hair.bind") as Uint32Array,
+      kind: raw("hair.kind") as Uint8Array,
+      dir: unit("hair.dir"),
+    },
+    garment: {
+      pos: pos("garment.pos"),
+      nrm: unit("garment.nrm"),
+      idx: raw("garment.idx") as Uint32Array,
+      bind: raw("garment.bind") as Uint32Array,
+      kind: raw("garment.kind") as Uint8Array,
+      band: scaled("garment.band", 1, 255),
+    },
     skin: {
       pos: pos("skin.pos"),
       nrm: unit("skin.nrm"),
@@ -428,6 +460,23 @@ export function smoothLayerNormals(
       A[j + 1] = B[j + 1]!;
       A[j + 2] = B[j + 2]!;
     }
+  }
+}
+
+/** moves attached meshes (clothes, hair) with the skin vertex each one is bound to */
+export function follow(
+  rest: Float32Array,
+  bind: Uint32Array,
+  skinRest: Float32Array,
+  skinNow: Float32Array,
+  out: Float32Array,
+) {
+  for (let i = 0; i < bind.length; i++) {
+    const j = i * 3,
+      q = bind[i]! * 3;
+    out[j] = rest[j]! + skinNow[q]! - skinRest[q]!;
+    out[j + 1] = rest[j + 1]! + skinNow[q + 1]! - skinRest[q + 1]!;
+    out[j + 2] = rest[j + 2]! + skinNow[q + 2]! - skinRest[q + 2]!;
   }
 }
 

@@ -50,7 +50,19 @@ def prepare(mh_dir, za_skin_pos, out, sex="f"):
               + 0.85 * T("buttocks/buttocks-volume-incr")
               + 0.6 * T("measure/measure-waist-circ-decr")
               + 0.4 * T("stomach/stomach-pregnant-decr")
-              + 0.3 * T("armslegs/upperlegs-height-incr"))[body]
+              + 0.3 * T("armslegs/upperlegs-height-incr")
+              # softer, feminine face: narrower jaw and chin, oval head, smaller nose,
+              # fuller lips, higher brows and cheekbones, slimmer neck
+              + 0.5 * T("chin/chin-width-decr") + 0.4 * T("chin/chin-prominent-decr")
+              + 0.4 * T("chin/chin-bones-decr") + 0.5 * T("head/head-oval")
+              + 0.3 * T("forehead/forehead-nubian-decr")
+              + 0.4 * T("nose/nose-scale-horiz-decr") + 0.25 * T("nose/nose-scale-vert-decr")
+              + 0.4 * T("nose/nose-volume-decr") + 0.3 * T("nose/nose-point-up")
+              + 0.6 * T("mouth/mouth-lowerlip-volume-incr") + 0.5 * T("mouth/mouth-upperlip-volume-incr")
+              + 0.4 * T("mouth/mouth-cupidsbow-incr")
+              + 0.4 * T("eyebrows/eyebrows-trans-up") + 0.2 * T("eyebrows/eyebrows-angle-up")
+              + 0.4 * T("cheek/l-cheek-bones-incr") + 0.4 * T("cheek/r-cheek-bones-incr")
+              + 0.4 * T("neck/neck-scale-horiz-decr"))[body]
     else:
         # same man with "ideal" (classical) proportions
         Fm = (male + 1.0 * T("macrodetails/proportions/male-young-averagemuscle-averageweight-idealproportions"))[body]
@@ -108,7 +120,10 @@ def field(p, kind):
     """Smooth kNN interpolation of the torso/leg/head displacement field."""
     kd, D = (_state["kd_all"], _state["D_all"]) if kind == "skin" else (_state["kd_inner"], _state["D_inner"])
     d, i = kd.query(p, k=24)
-    w = np.exp(-(d / 0.03) ** 2) + 1e-9
+    # finer interpolation on the face so small features (lips, nose, brows) survive
+    H = _state["H"]
+    sig = np.where(p[:, 1] > 0.86 * H, 0.012, 0.03)[:, None]
+    w = np.exp(-(d / sig) ** 2) + 1e-9
     w /= w.sum(1, keepdims=True)
     return (D[i] * w[..., None]).sum(1)
 
@@ -134,7 +149,10 @@ def warp_body(SV, smooth, MV, BV, armS, armM, armB, axes, w, extras=()):
     """Skin gets the full field (breasts included), smoothed over the surface.
     Muscles and bones follow the skin field without the breast bulge."""
     _setup(w)
-    Dfull = smooth(field(SV, "skin"), 10)
+    raw = field(SV, "skin")
+    Dfull = smooth(raw, 10)
+    face = np.clip((SV[:, 1] - 0.86 * _state["H"]) / 0.02, 0, 1)[:, None]
+    Dfull = Dfull * (1 - face) + smooth(raw, 2) * face
     Dinner = smooth(field(SV, "inner"), 25)
     S2 = arm_transform(SV, armS, axes, SV + Dfull)
     from scipy.spatial import cKDTree as _KD

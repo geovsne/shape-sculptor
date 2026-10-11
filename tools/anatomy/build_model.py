@@ -357,6 +357,13 @@ if WARP:
     BN = trimesh.Trimesh(BV, BT, process=False).vertex_normals
     MA *= 0.92
     skin = trimesh.Trimesh(SV, sub_t, process=False)
+    # the warp brings back some relief in the groin: flatten it again (minimal membrane)
+    _x = SV.copy()
+    if len(_I):
+        for _c in range(3):
+            _x[_I, _c] = spsolve(_LII, -(_LIB @ _x[_B, _c]))
+    SV = _x
+    skin = trimesh.Trimesh(SV, sub_t, process=False)
 ST = skin.faces
 SN = skin.vertex_normals
 print("skin verts", len(SV), "tris", len(ST))
@@ -371,7 +378,14 @@ def band(y, lo, hi, soft=0.004):
 
 
 _noarm = 1 - 2 * np.clip(smoother(skin)(armMask.astype(float), 8), 0, 1)
-shortsF = np.minimum(band(_y, crotch - 0.075, navel - 0.03), _noarm)
+ear_lo = _y[named("Lobule of auricle")].min()
+_hem, _rise = (crotch - 0.075, navel - 0.03) if SEX == "m" else (crotch - 0.03, navel - 0.045)
+shortsF = np.minimum(band(_y, _hem, _rise), _noarm)
+# the flattened groin hangs between the legs like a web below the perineum: real shorts
+# stop at the inseam there, so leave that part out
+_gm = _gen & (np.abs(SV[:, 0]) < 0.01)
+_perineum = crotch + 0.55 * (np.median(_y[_gm]) - crotch) if _gm.any() else crotch + 0.04
+
 shorts_v = shortsF > 0
 top_v = np.zeros(len(SV), bool)
 topF = np.full(len(SV), -1.0)
@@ -379,7 +393,28 @@ if SEX == "f":
     under = _y[named("Inframammary region")].min() - 0.035
     upper = _y[named("Mammary region")].max() + 0.03
     _nodelt = 1 - 2 * np.clip(smoother(skin)(named("Deltoid region").astype(float), 8), 0, 1)
-    topF = np.minimum(np.minimum(band(_y, under, upper), _noarm), _nodelt)
+    # sports bra: covers the bust (not the belly), scooped neckline, narrow back band, straps
+    under = _y[named("Inframammary region")].min() - 0.012
+    _br = named("Mammary region") & (SV[:, 0] > 0)
+    apexY = SV[_br][np.argmax(SV[_br, 2]), 1]
+    _torso = (np.abs(SV[:, 0]) < 0.16) & (_noarm > 0)
+    _bins = np.round(_y / 0.01).astype(int)
+    _cz = np.zeros(len(SV))
+    for _b in np.unique(_bins[_torso]):
+        _sel = _torso & (_bins == _b)
+        _cz[_bins == _b] = 0.5 * (SV[_sel, 2].max() + SV[_sel, 2].min())
+    _front = np.clip((SV[:, 2] - _cz) / 0.03 + 0.5, 0, 1)
+    _neck = apexY + 0.05 + 0.045 * np.clip(np.abs(SV[:, 0]) / 0.12, 0, 1)
+    _hi = _front * _neck + (1 - _front) * (under + 0.065)
+    _bra = np.minimum(np.minimum(np.minimum(_y - under, _hi - _y) / 0.004, _noarm), _nodelt)
+    _strap_x = 0.088
+    _strap = np.minimum(
+        (0.0095 - np.abs(np.abs(SV[:, 0]) - _strap_x)) / 0.002,
+        np.minimum((_y - (_hi - 0.01)) / 0.004, (ear_lo - 0.04 - _y) / 0.004),
+    )
+    _strap = np.minimum(_strap, _noarm)
+    topF = np.clip(np.maximum(_bra, _strap), -1, 1)
+    bra_under = under
     top_v = topF > 0
 cloth = np.zeros(len(ST), np.uint8)
 cloth[shorts_v[ST].all(1)] = 1
@@ -392,8 +427,8 @@ _fab_n = skin.vertex_normals
 _sm2 = smoother(skin)
 # low-pass the surface, then give back the large-scale shrink along the normal so the
 # bust keeps its volume while small bumps (nipples, creases) disappear
-_fab_s = _sm2(SV, 30)
-_shr = _sm2(((SV - _fab_s) * _fab_n).sum(1), 60)
+_fab_s = _sm2(SV, 45)
+_shr = _sm2(((SV - _fab_s) * _fab_n).sum(1), 220)
 _fab_s = _fab_s + _fab_n * _shr[:, None]
 _fab_d = ((_fab_s - SV) * _fab_n).sum(1)
 _sm2 = smoother(skin)
@@ -424,13 +459,8 @@ hairline = back_line + (brow + 0.055 - back_line) * tt
 capF = np.where(headv, np.clip((_y - hairline) / 0.004, -1, 1), -1.0)
 hair_v = capF > 0
 cloth[hair_v[ST].all(1) & (cloth == 0)] = 3
-if SEX == "f":
-    occ = SV[headv & (_y > brow - 0.01) & (_y < brow + 0.04)]
-    back_pt = occ[np.argmin(occ[:, 2])]
-    bun = trimesh.creation.icosphere(subdivisions=3, radius=0.042)
-    bun.vertices[:, 2] *= 0.85
-    bun.apply_translation(back_pt + np.array([0, 0.035, -0.03]))
-    HT = np.r_[HT, bun.faces + len(HV)]; HV = np.r_[HV, bun.vertices]
+_occ = np.where(headv & (_y > brow - 0.01) & (_y < brow + 0.04))[0]
+occ_i = _occ[np.argmin(SV[_occ, 2])]
 print("hair cap faces", (cloth == 3).sum())
 
 # gentle smile: lift and pull back the mouth corners a little
@@ -499,11 +529,84 @@ bindStrength = sm(hitMuscle.astype(float), 2)
 bindW = bindW * bindStrength[:, None]
 fiberS = MF[idx[:, 0]] * (bindStrength[:, None] > 0.05)
 
+# ---------------------------------------------------------------- clothes and hair meshes
+from garments import garment, hair_shell, strand_dirs, tube  # noqa: E402
+
+SN = trimesh.Trimesh(SV, ST, process=False).vertex_normals
+G_V, G_T, G_B, G_K, G_BAND = [], [], [], [], []
+
+
+_skin_mesh = trimesh.Trimesh(SV, ST, process=False)
+
+
+def _add_garment(mask, kind, thick, iters, bands, soften=0, crotch_zone=None):
+    V, F, b, bd = garment(SV, ST, SN, mask, thick, iters, bands, _skin_mesh, soften, crotch_zone)
+    off = sum(len(x) for x in G_V)
+    G_V.append(V); G_T.append(F + off); G_B.append(b); G_K.append(np.full(len(V), kind)); G_BAND.append(bd)
+    print("garment", kind, len(V), "verts", len(F), "tris")
+
+
+def _shorts_bands(ymean, loop):
+    if ymean > navel - 0.12:  # waistband
+        return 0.035, 1.0, 0.0016
+    return 0.016, 0.5, 0.0008  # leg hems
+
+
+_add_garment(shortsF > 0, 0, 0.0045, 220, _shorts_bands, 4, (_perineum, 0.06))
+if SEX == "f":
+    _lowest = [None]
+
+    def _top_bands(ymean, loop):
+        if ymean < bra_under + 0.03:  # elastic under-band
+            return 0.024, 1.0, 0.001
+        return 0.006, 0.5, 0.0004  # neckline, arm holes, strap edges
+
+    _add_garment(topF > 0, 1, 0.0035, 80, _top_bands, 12)
+GV = np.concatenate(G_V); GT = np.concatenate(G_T); GB = np.concatenate(G_B)
+GK = np.concatenate(G_K); GBAND = np.concatenate(G_BAND)
+
+# hair: brows/lashes (kind 0) follow the nearest skin point; hair mass (1); hair tie (2)
+_kd_s = cKDTree(SV)
+HB = _kd_s.query(HV)[1]
+HK = np.zeros(len(HV)); HD = np.tile([0.0, 0.0, 1.0], (len(HV), 1))
+_cap = capF > 0
+_sv, _sf, _su = hair_shell(SV, ST, SN, _cap, 0.007 if SEX == "m" else 0.009)
+_sn = trimesh.Trimesh(_sv, _sf, process=False).vertex_normals
+if SEX == "f":
+    P0 = SV[occ_i] + np.array([0, 0.012, -0.012])
+    _dir = strand_dirs(_sv, _sn, target=P0)
+else:
+    _dir = strand_dirs(_sv, _sn, along=np.array([0.0, 0.3, -1.0]))
+HT = np.r_[HT, _sf + len(HV)]; HV = np.r_[HV, _sv]; HB = np.r_[HB, _su]
+HK = np.r_[HK, np.ones(len(_sv))]; HD = np.r_[HD, _dir]
+if SEX == "f":
+    # ponytail hanging from the back of the head, kept off the neck and back
+    tt_ = np.linspace(0, 1, 48)[:, None]
+    C = [P0, P0 + [0, 0.0, -0.07], P0 + [0, -0.12, -0.075], P0 + [0, -0.27, -0.035]]
+    path = ((1 - tt_) ** 3) * C[0] + 3 * ((1 - tt_) ** 2) * tt_ * C[1] + 3 * (1 - tt_) * tt_ ** 2 * C[2] + tt_ ** 3 * C[3]
+    s_ = tt_[:, 0]
+    rad = np.where(s_ < 0.55, 0.019 + 0.017 * np.sin(np.pi * np.clip((s_ - 0.04) / 0.62, 0, 1)), 0)
+    rad = np.where(s_ >= 0.55, (0.019 + 0.017 * np.sin(np.pi * 0.82)) * (1 - (s_ - 0.55) / 0.45) + 0.004, rad)
+    _back = (np.abs(SV[:, 0]) < 0.04)
+    for i, pt in enumerate(path):
+        near = _back & (np.abs(SV[:, 1] - pt[1]) < 0.012)
+        if near.any():
+            zb = SV[near, 2].min()
+            path[i, 2] = min(pt[2], zb - rad[i] - 0.006)
+    pv, pf, pd = tube(path, rad, 22)
+    HT = np.r_[HT, pf + len(HV)]; HV = np.r_[HV, pv]; HB = np.r_[HB, np.full(len(pv), occ_i)]
+    HK = np.r_[HK, np.ones(len(pv))]; HD = np.r_[HD, np.array(pd)]
+    k0, k1 = 1, 4  # hair tie just after the base
+    tv, tf, td = tube(path[k0:k1 + 1], np.full(k1 - k0 + 1, 0.0225), 22)
+    HT = np.r_[HT, tf + len(HV)]; HV = np.r_[HV, tv]; HB = np.r_[HB, np.full(len(tv), occ_i)]
+    HK = np.r_[HK, np.full(len(tv), 2)]; HD = np.r_[HD, np.array(td)]
+print("hair verts", len(HV))
+
 # ---------------------------------------------------------------- pack
 ground = min(SV[:, 1].min(), MV[:, 1].min(), BV[:, 1].min())
 cx = 0.0
-lo = np.minimum.reduce([X.min(0) for X in (SV, MV, BV, EV, HV)]); hi = np.maximum.reduce([X.max(0) for X in (SV, MV, BV, EV, HV)])
-for arr in (SV, MV, BV, EV, HV):
+lo = np.minimum.reduce([X.min(0) for X in (SV, MV, BV, EV, HV, GV)]); hi = np.maximum.reduce([X.max(0) for X in (SV, MV, BV, EV, HV, GV)])
+for arr in (SV, MV, BV, EV, HV, GV):
     arr[:, 1] -= ground
 lo[1] -= ground; hi[1] -= ground
 scale = (hi - lo)
@@ -554,6 +657,11 @@ put("eye.pos", qpos(EV)); put("eye.nrm", qn(EN)); put("eye.idx", ET.astype(np.ui
 put("eye.kind", np.round(EK / 2 * 255).astype(np.uint8))  # 0..2 = angle / iris angle
 HN = trimesh.Trimesh(HV, HT, process=False).vertex_normals
 put("hair.pos", qpos(HV)); put("hair.nrm", qn(HN)); put("hair.idx", HT.astype(np.uint32))
+put("hair.bind", HB.astype(np.uint32)); put("hair.kind", HK.astype(np.uint8)); put("hair.dir", qn(HD + 1e-9))
+GN = trimesh.Trimesh(GV, GT, process=False).vertex_normals
+put("garment.pos", qpos(GV)); put("garment.nrm", qn(GN)); put("garment.idx", GT.astype(np.uint32))
+put("garment.bind", GB.astype(np.uint32)); put("garment.kind", GK.astype(np.uint8))
+put("garment.band", np.round(np.clip(GBAND, 0, 1) * 255).astype(np.uint8))
 
 header = dict(version=1, sex=SEX, lo=lo.tolist(), scale=scale.tolist(), height=float(hi[1] - lo[1]),
               groups=GROUPS, heads=HEADS, fatRegions=FAT_REGIONS, parts=parts, sections=sections,
