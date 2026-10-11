@@ -86,7 +86,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-16 sm:px-8 sm:py-24">
+    <section id={id} className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-10 sm:px-8 sm:py-20">
       <div className="text-[11px] uppercase tracking-[0.25em] text-primary">{eyebrow}</div>
       <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold leading-[1.05] tracking-tight text-balance sm:text-5xl">
         {title}
@@ -111,46 +111,18 @@ const STEPS = [
   },
 ];
 
-const ENGINE = [
-  [
-    "Cabeças musculares",
-    "38 regiões com desenvolvimento próprio. Tríceps francês puxa a cabeça longa, pulley a lateral; barra fixa aberta a dorsal alta, supinada ou neutra a dorsal baixa; encolhimento o trapézio superior, Y no banco o inferior. A pegada muda a ênfase.",
-  ],
-  [
-    "Volume por músculo",
-    "Séries efetivas por semana. Entre 10 e 20 é a faixa produtiva; acima disso cada série rende menos e cansa mais.",
-  ],
-  [
-    "Descanso",
-    "Cada músculo acumula fadiga e recupera por dia. Treinar o mesmo músculo pesado em dias seguidos cobra o preço.",
-  ],
-  [
-    "Intensidade",
-    "Quanto mais perto da falha, maior o estímulo e maior a fadiga. Séries leves quase não fazem o corpo mudar.",
-  ],
-  [
-    "Capacidade de recuperação",
-    "A carga total da semana é comparada ao quanto o corpo aguenta. Acima disso vem o overreaching e depois o overtraining.",
-  ],
-  [
-    "Lesões",
-    "Músculo e tendão se lesionam por razões diferentes: o músculo por fadiga e volume, o tendão por carga alta repetida.",
-  ],
-  [
-    "Composição corporal",
-    "Gasto calórico estimado contra o que o avatar come. O saldo decide se ele ganha músculo, gordura ou os dois.",
-  ],
+const FREE = [
+  "Avatar 3D com musculatura e pele",
+  "Rotina semanal: exercícios, séries, repetições e intensidade",
+  "Crescimento por músculo e alertas de overtraining",
+  "Lesões musculares e de tendão",
+  "Dieta de manutenção do próprio peso",
 ];
-
-const COMPARE: [string, string, string][] = [
-  ["Avatar 3D com pele e musculatura", "Sim", "Sim"],
-  ["Rotina semanal com exercícios por dia", "Sim", "Sim"],
-  ["Séries, repetições e descanso", "Sim", "Sim"],
-  ["Carga", "Por intensidade", "Em kg, com 1RM estimado"],
-  ["Alertas de volume e overtraining", "Sim", "Sim"],
-  ["Lesões musculares e de tendão", "Sim", "Sim, também por excesso de carga"],
-  ["Alimentação", "Manutenção: come o que gasta", "Calorias e proteína livres"],
-  ["Hormônios", "Não", "Reposição ou acima do fisiológico, com colaterais"],
+const PRO = [
+  "Carga em kg com 1RM estimado",
+  "Pegada, ângulo do banco e amplitude",
+  "Dieta com calorias, proteína, carboidrato e gordura",
+  "Hormônios com efeitos colaterais",
 ];
 
 export function Landing() {
@@ -198,9 +170,8 @@ export function Landing() {
               <span className="text-primary">Veja o corpo responder.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              O MYO/LAB transforma sua rotina de treino num avatar 3D que evolui semana a semana.
-              Ele cresce onde você treina, recupera nos dias de folga e se machuca quando você passa
-              do limite.
+              Sua rotina vira um avatar 3D que cresce onde você treina, recupera nas folgas e se
+              machuca quando passa do limite.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -217,172 +188,56 @@ export function Landing() {
               </a>
             </div>
           </div>
-          <WeekMock />
+          <div className="hidden lg:block">
+            <WeekMock />
+          </div>
         </section>
 
-        <Section
-          id="como-funciona"
-          eyebrow="Como funciona"
-          title="Três passos, e o resto é consequência."
-        >
-          <ol className="grid gap-4 md:grid-cols-3">
+        <Section id="como-funciona" eyebrow="Como funciona" title="Três passos.">
+          <ol className="grid gap-3 md:grid-cols-3">
             {STEPS.map((s, i) => (
-              <li
-                key={s.t}
-                className="rounded-[28px] bg-card p-6 shadow-[0_30px_60px_-40px_oklch(0.2_0.02_260/30%)]"
-              >
+              <li key={s.t} className="flex gap-4 rounded-[24px] bg-card p-5">
                 <div className="font-display text-sm font-bold text-primary tabular-nums">
                   {String(i + 1).padStart(2, "0")}
                 </div>
-                <div className="mt-3 font-display text-xl font-semibold">{s.t}</div>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.d}</p>
+                <div>
+                  <div className="font-display text-lg font-semibold">{s.t}</div>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{s.d}</p>
+                </div>
               </li>
             ))}
           </ol>
-        </Section>
-
-        <Section
-          eyebrow="O motor da simulação"
-          title="Não é animação. É fisiologia aplicada, simplificada."
-        >
-          <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-            {ENGINE.map(([t, d]) => (
-              <div key={t} className="border-t pt-4">
-                <div className="font-display text-base font-semibold">{t}</div>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{d}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-10 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Os alertas avisam, mas nunca bloqueiam. Se você quiser treinar o mesmo músculo todo dia
-            até a falha, o simulador deixa, e mostra o resultado.
+          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            Por trás: volume por músculo, fadiga e descanso, intensidade, limite de recuperação,
+            lesões e balanço calórico. Os alertas avisam, mas nunca bloqueiam.
           </p>
         </Section>
 
-        <Section
-          id="pro"
-          eyebrow="Grátis e PRO"
-          title="O treino é grátis. O PRO simula o resto da vida do avatar."
-        >
-          <div className="overflow-x-auto rounded-[28px] bg-card shadow-[0_30px_60px_-40px_oklch(0.2_0.02_260/30%)]">
-            <table className="w-full min-w-[560px] text-left text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-6 py-4 font-medium text-muted-foreground">Recurso</th>
-                  <th className="px-6 py-4 font-display font-semibold">Grátis</th>
-                  <th className="px-6 py-4 font-display font-semibold">
-                    PRO{" "}
-                    <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-                      R$ 10 · vitalício
-                    </span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARE.map(([f, a, b]) => (
-                  <tr key={f} className="border-b last:border-0">
-                    <td className="px-6 py-3.5 font-medium">{f}</td>
-                    <td className="px-6 py-3.5 text-muted-foreground">{a}</td>
-                    <td className="px-6 py-3.5">{b}</td>
-                  </tr>
+        <Section id="pro" eyebrow="Grátis e PRO" title="O treino é grátis. O PRO simula o resto.">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-[24px] bg-card p-6">
+              <div className="font-display text-xl font-semibold">Grátis</div>
+              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                {FREE.map((f) => (
+                  <li key={f}>• {f}</li>
                 ))}
-              </tbody>
-            </table>
+              </ul>
+            </div>
+            <div className="rounded-[24px] bg-foreground p-6 text-background">
+              <div className="flex items-baseline justify-between">
+                <div className="font-display text-xl font-semibold">PRO</div>
+                <div className="text-sm">
+                  <strong className="text-primary">R$ 10</strong> · único, vitalício
+                </div>
+              </div>
+              <ul className="mt-3 space-y-2 text-sm opacity-80">
+                {PRO.map((f) => (
+                  <li key={f}>• {f}</li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            PRO por <strong className="text-foreground">R$ 10</strong>, pagamento único e acesso
-            vitalício. Sem assinatura.
-          </p>
         </Section>
-
-        <section className="mx-auto grid max-w-6xl gap-4 px-4 pb-16 sm:px-8 lg:grid-cols-3">
-          <article className="rounded-[28px] bg-card p-7 shadow-[0_30px_60px_-40px_oklch(0.2_0.02_260/30%)]">
-            <div className="text-[11px] uppercase tracking-[0.25em] text-primary">PRO · Dieta</div>
-            <h3 className="mt-3 font-display text-2xl font-bold tracking-tight">
-              O prato decide o que o treino constrói.
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Defina calorias e proteína. O simulador estima o gasto do avatar e aplica o saldo toda
-              semana.
-            </p>
-            <ul className="mt-5 space-y-3 text-sm">
-              <li>
-                <strong>Superávit e bom treino:</strong> ganha músculo e um pouco de gordura.
-              </li>
-              <li>
-                <strong>Déficit e bom treino:</strong> seca preservando músculo, se a proteína
-                estiver alta.
-              </li>
-              <li>
-                <strong>Treino pesado e dieta ruim:</strong> perde músculo, energia e rendimento.
-              </li>
-              <li>
-                <strong>Sem treino e superávit:</strong> o excedente vira gordura.
-              </li>
-            </ul>
-          </article>
-
-          <article className="rounded-[28px] bg-card p-7 shadow-[0_30px_60px_-40px_oklch(0.2_0.02_260/30%)]">
-            <div className="text-[11px] uppercase tracking-[0.25em] text-primary">
-              PRO · Carga e lesões
-            </div>
-            <h3 className="mt-3 font-display text-2xl font-bold tracking-tight">
-              Músculo e tendão quebram de jeitos diferentes.
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              No PRO a carga vira kg. O simulador estima o 1RM do avatar, diz quantas repetições
-              cabem naquela carga e aplica o risco.
-            </p>
-            <ul className="mt-5 space-y-3 text-sm">
-              <li>
-                <strong>Lesão muscular:</strong> do estiramento grau 1 (1 semana) à ruptura (8
-                semanas e perda de massa).
-              </li>
-              <li>
-                <strong>Lesão de tendão:</strong> tendinopatia, ruptura parcial ou completa, que
-                pede cirurgia.
-              </li>
-              <li>
-                <strong>Causas:</strong> volume alto, falta de descanso, falha constante e cargas
-                acima de 92% do máximo.
-              </li>
-              <li>
-                <strong>Treinar lesionado:</strong> não gera ganho e atrasa a recuperação.
-              </li>
-            </ul>
-          </article>
-
-          <article className="rounded-[28px] bg-foreground p-7 text-background">
-            <div className="text-[11px] uppercase tracking-[0.25em] text-primary">
-              PRO · Hormônios
-            </div>
-            <h3 className="mt-3 font-display text-2xl font-bold tracking-tight">
-              Todo atalho tem conta para pagar.
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed opacity-70">
-              Simule testosterona em reposição médica ou acima do nível natural.
-            </p>
-            <ul className="mt-5 space-y-3 text-sm">
-              <li>
-                <strong>Ganho:</strong> mais músculo, recuperação mais rápida e mais energia para
-                treinar.
-              </li>
-              <li>
-                <strong>Custo garantido:</strong> a produção natural é suprimida sempre que se usa.
-              </li>
-              <li>
-                <strong>Colaterais:</strong> chances que crescem com o tempo de uso, alguns
-                irreversíveis.
-              </li>
-              <li>
-                <strong>Tendões:</strong> não acompanham o músculo, e o risco de ruptura sobe.
-              </li>
-              <li>
-                <strong>Ao parar:</strong> semanas de supressão, cansaço e perda de massa.
-              </li>
-            </ul>
-          </article>
-        </section>
 
         <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-8">
           <div className="rounded-[32px] bg-secondary p-8 sm:p-12">
