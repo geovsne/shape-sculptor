@@ -176,6 +176,9 @@ for i, m in enumerate(meta):
         h2 = HEADS.index("chest_lower"); hw = np.clip((0.45 - ty) / 0.3, 0, 1)
     if m["base"] == "Rectus abdominis muscle":
         h2 = HEADS.index("abs_lower"); hw = np.clip((0.6 - ty) / 0.22, 0, 1)
+    if m["base"] == "Latissimus dorsi muscle":
+        # the muscle runs from the iliac crest / low thoracic spine up to the armpit
+        h2 = HEADS.index("lats_lower"); hw = np.clip((0.62 - ty) / 0.3, 0, 1)
     mus_h1.append(np.full(len(v), h1)); mus_h2.append(np.full(len(v), h2)); mus_hw.append(hw)
     pid = len(parts)
     parts.append(dict(name=m["base"], label=m["label"], side=m["side"], group=g, tendon=is_tendon,
@@ -382,6 +385,25 @@ cloth = np.zeros(len(ST), np.uint8)
 cloth[shorts_v[ST].all(1)] = 1
 cloth[top_v[ST].all(1)] = 2
 print("cloth faces", (cloth == 1).sum(), (cloth == 2).sum())
+
+# fabric drape: a sports top hides the nipples (smooth the whole bust surface) and shorts
+# bridge the groin creases (only fill concavities), like real fabric over skin
+_fab_n = skin.vertex_normals
+_sm2 = smoother(skin)
+# low-pass the surface, then give back the large-scale shrink along the normal so the
+# bust keeps its volume while small bumps (nipples, creases) disappear
+_fab_s = _sm2(SV, 30)
+_shr = _sm2(((SV - _fab_s) * _fab_n).sum(1), 60)
+_fab_s = _fab_s + _fab_n * _shr[:, None]
+_fab_d = ((_fab_s - SV) * _fab_n).sum(1)
+_sm2 = smoother(skin)
+_wt = _sm2(np.clip(topF + 0.6, 0, 1), 6)
+_ws = _sm2(np.clip(shortsF + 0.6, 0, 1), 6) * (_fab_d > 0)
+_w = np.clip(np.maximum(_wt, _ws), 0, 1)[:, None]
+SV = SV * (1 - _w) + _fab_s * _w
+skin = trimesh.Trimesh(SV, sub_t, process=False)
+SN = skin.vertex_normals
+_y = SV[:, 1]
 
 # hair cap (flag 3) from the scalp, friendly-looking instead of a bald anatomy head
 EAR = ["Helix", "Antihelix", "Antitragus", "Tragus", "Lobule of auricle", "Concha of auricle", "Cavity of concha",

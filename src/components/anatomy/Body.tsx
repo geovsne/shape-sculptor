@@ -3,7 +3,15 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Head, Muscle, Profile } from "@/lib/training";
 import { HEADS, HEAD_IDS } from "@/lib/training";
-import { deform, leanness, loadBody, STATIC_GROUP, TENDON_GROUP, type BodyModel } from "./model";
+import {
+  deform,
+  leanness,
+  loadBody,
+  smoothLayerNormals,
+  STATIC_GROUP,
+  TENDON_GROUP,
+  type BodyModel,
+} from "./model";
 
 export type BodyProps = {
   profile: Profile;
@@ -139,12 +147,14 @@ function buildGeometries(m: BodyModel) {
   skin.setAttribute("color", new THREE.BufferAttribute(tint, 3));
   skin.setIndex(new THREE.BufferAttribute(m.skin.idx, 1));
 
-  // clothes and hair cap share the (deformed) skin vertices
+  // clothes and hair cap share the (deformed) skin vertices; fabric gets its own,
+  // smoother normals so it drapes over small skin details instead of revealing them
   const clothW = new THREE.BufferAttribute(m.skin.clothW, 3);
+  const fabricNrm = new THREE.BufferAttribute(m.skin.nrm.slice(), 3);
   const sub = (channel: number) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", skinPos);
-    g.setAttribute("normal", skinNrm);
+    g.setAttribute("normal", channel === 2 ? skinNrm : fabricNrm);
     g.setAttribute("clothW", clothW);
     g.setIndex(new THREE.BufferAttribute(subsetIndex(m, channel), 1));
     return g;
@@ -286,6 +296,13 @@ export function Body({
     geo.muscle.computeVertexNormals();
     geo.skin.computeVertexNormals();
     (geo.skin.getAttribute("normal") as THREE.BufferAttribute).needsUpdate = true;
+    const fn = geo.top.getAttribute("normal") as THREE.BufferAttribute;
+    smoothLayerNormals(
+      model,
+      (geo.skin.getAttribute("normal") as THREE.BufferAttribute).array as Float32Array,
+      fn.array as Float32Array,
+    );
+    fn.needsUpdate = true;
     geo.muscle.computeBoundingSphere();
     geo.skin.computeBoundingSphere();
     for (const g of [geo.shorts, geo.top, geo.cap]) g.computeBoundingSphere();

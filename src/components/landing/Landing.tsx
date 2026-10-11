@@ -114,7 +114,7 @@ const STEPS = [
 const ENGINE = [
   [
     "Cabeças musculares",
-    "Cada cabeça tem desenvolvimento próprio. Tríceps francês puxa a cabeça longa, pulley a lateral; supino inclinado o peitoral superior, declinado o inferior.",
+    "38 regiões com desenvolvimento próprio. Tríceps francês puxa a cabeça longa, pulley a lateral; barra fixa aberta a dorsal alta, supinada ou neutra a dorsal baixa; encolhimento o trapézio superior, Y no banco o inferior. A pegada muda a ênfase.",
   ],
   [
     "Volume por músculo",

@@ -16,9 +16,9 @@ MUSCLES = {
  "Teres minor muscle": ("rearDelts", "Redondo menor"),
  "Subscapularis muscle": (None, "Subescapular"),
  # back
- "Descending part of trapezius muscle": ("traps", "Trapézio superior"),
+ "Descending part of trapezius muscle": ("traps", "Trapézio inferior"),  # names are swapped in the Z-Anatomy file
  "Transverse part of trapezius muscle": ("traps", "Trapézio médio"),
- "Ascending part of trapezius muscle": ("traps", "Trapézio inferior"),
+ "Ascending part of trapezius muscle": ("traps", "Trapézio superior"),
  "Rhomboid major muscle": ("traps", "Romboide maior"),
  "Rhomboid minor muscle": ("traps", "Romboide menor"),
  "Levator scapulae": ("traps", "Levantador da escápula"),
@@ -144,7 +144,7 @@ BONE_SKIP = ("cells of ethmoid", "Sinus of", "Incus", "Malleus", "Stapes", "cart
 
 # order must match HEAD_IDS in src/lib/training.ts
 HEADS = ["chest_upper", "chest_mid", "chest_lower", "delt_front", "delt_side", "delt_rear", "traps_upper",
-         "traps_mid", "traps_lower", "lats_lat", "lats_teres", "erectors", "abs_upper", "abs_lower", "obl",
+         "traps_mid", "traps_lower", "lats_upper", "lats_lower", "lats_teres", "erectors", "abs_upper", "abs_lower", "obl",
          "serratus", "biceps_long", "biceps_short", "brachialis", "triceps_long", "triceps_lateral",
          "triceps_medial", "fore_flex", "fore_ext", "brachioradialis", "glute_max", "glute_med", "quad_rf",
          "quad_vl", "quad_vm", "quad_vi", "ham_bfl", "ham_bfs", "ham_st", "ham_sm", "calf_gastro", "calf_soleus"]
@@ -160,13 +160,13 @@ HEAD_OF = {
  "Supraspinatus muscle": "delt_side",
  "Infraspinatus muscle": "delt_rear",
  "Teres minor muscle": "delt_rear",
- "Descending part of trapezius muscle": "traps_upper",
+ "Descending part of trapezius muscle": "traps_lower",  # the Z-Anatomy mesh with this name sits low (T12-T4)
  "Transverse part of trapezius muscle": "traps_mid",
- "Ascending part of trapezius muscle": "traps_lower",
+ "Ascending part of trapezius muscle": "traps_upper",  # ...and this one is the neck / upper part
  "Rhomboid major muscle": "traps_mid",
  "Rhomboid minor muscle": "traps_mid",
  "Levator scapulae": "traps_upper",
- "Latissimus dorsi muscle": "lats_lat",
+ "Latissimus dorsi muscle": "lats_upper",  # lower fibres blend into lats_lower
  "Teres major muscle": "lats_teres",
  "Serratus anterior muscle": "serratus",
  "Iliocostalis lumborum muscle": "erectors",

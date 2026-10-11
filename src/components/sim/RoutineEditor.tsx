@@ -173,6 +173,25 @@ export function RoutineEditor({
                   </button>
                 </div>
               </div>
+              {e.variants && (
+                <div className="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label="Pegada">
+                  {e.variants.map((v, vi) => {
+                    const on = (item.variant ?? e.variants![0]?.id) === v.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => update(idx, { variant: vi === 0 ? undefined : v.id })}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${on ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {v.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div className="flex items-center gap-1.5">
                   <Stepper

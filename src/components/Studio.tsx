@@ -44,7 +44,12 @@ export function Studio() {
   const [skin, setSkin] = useState(1);
   const [muscle, setMuscle] = useState<Muscle | null>(null);
   const [equip, setEquip] = useState<(typeof EQUIPS)[number]>("Todos");
-  const [exId, setExId] = useState<string | null>("ohp");
+  const [exId, setExIdState] = useState<string | null>("ohp");
+  const [exVar, setExVar] = useState<string | undefined>(undefined);
+  const setExId = (id: string | null, variant?: string) => {
+    setExIdState(id);
+    setExVar(variant);
+  };
   const [pickedHead, setPickedHead] = useState<Head | null>(null);
 
   const [profile, setProfile] = useState<Profile>({ sex: "m", height: 178, weight: 78, bf: 16 });
@@ -83,7 +88,7 @@ export function Studio() {
     if (!ex) return 0;
     const g = HEADS[h].group;
     const k = ex.primary.includes(g) ? 1 : ex.secondary.includes(g) ? 0.5 : 0;
-    return k * headEmphasis(ex, h);
+    return k * headEmphasis(ex, h, exVar);
   };
   const colorFor = (m: Muscle, h: Head) => {
     if (mode === "explore") {
@@ -389,6 +394,23 @@ export function Studio() {
                       </div>
                     </div>
                   )}
+                  {ex.variants && (
+                    <div>
+                      <div className="mb-1.5 text-xs font-semibold">Pegada / variação</div>
+                      <div className="flex flex-wrap gap-1">
+                        {ex.variants.map((v) => (
+                          <button
+                            type="button"
+                            key={v.id}
+                            onClick={() => setExVar(v.id)}
+                            className={`rounded-full px-2.5 py-1 text-xs transition-all ${(exVar ?? ex.variants![0]?.id) === v.id ? "bg-foreground text-background" : "bg-secondary"}`}
+                          >
+                            {v.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="border-t pt-3">
                     <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                       Ativação por cabeça
@@ -440,8 +462,15 @@ export function Studio() {
                         ? pickedHead
                         : HEADS_OF[muscle][0]!;
                     const best = EXERCISES.filter((e) => e.primary.includes(HEADS[target].group))
-                      .map((e) => ({ e, w: headEmphasis(e, target) }))
+                      .flatMap((e) =>
+                        (e.variants ?? [undefined]).map((v) => ({
+                          e,
+                          v,
+                          w: headEmphasis(e, target, v?.id),
+                        })),
+                      )
                       .sort((x, y) => y.w - x.w)
+                      .filter((x, i, arr) => arr.findIndex((y) => y.e === x.e) === i)
                       .slice(0, 5);
                     return (
                       <div>
@@ -449,14 +478,19 @@ export function Studio() {
                           Melhores para {HEADS[target].name}
                         </div>
                         <div className="space-y-1">
-                          {best.map(({ e, w }) => (
+                          {best.map(({ e, v, w }) => (
                             <button
                               type="button"
                               key={e.id}
-                              onClick={() => setExId(e.id)}
+                              onClick={() => setExId(e.id, v?.id)}
                               className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs hover:bg-secondary"
                             >
-                              <span>{e.name}</span>
+                              <span>
+                                {e.name}
+                                {v && e.variants!.length > 1 && (
+                                  <span className="text-muted-foreground"> · {v.label}</span>
+                                )}
+                              </span>
                               <span className="tabular-nums text-muted-foreground">
                                 {Math.round(w * 100)}%
                               </span>

@@ -32,6 +32,8 @@ export const INTENSITY_IDS = Object.keys(INTENSITIES) as Intensity[];
 
 /** kg is only used when PRO is active; otherwise intensity drives the set */
 export type PlanItem = {
+  /** grip / stance variation id (see Exercise.variants) */
+  variant?: string | undefined;
   exId: string;
   sets: number;
   reps: number;
@@ -565,7 +567,8 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
       const { fat } = perSet(item, li);
       const add = (m: Muscle, c: number) => {
         sets[m] += item.sets * c;
-        for (const h of HEADS_OF[m]) headSets[h] += item.sets * c * headEmphasis(e, h);
+        for (const h of HEADS_OF[m])
+          headSets[h] += item.sets * c * headEmphasis(e, h, item.variant);
         daily[m]![d]! += item.sets * c * fat;
         systemic += item.sets * c * fat;
       };
@@ -858,7 +861,9 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
         sLoad[m] = (sLoad[m] ?? 0) + item.sets * c * fat;
         sStim[m] = (sStim[m] ?? 0) + (item.sets * c * st) / (1 + F[m] / 10);
         for (const h of HEADS_OF[m])
-          sHead[h] = (sHead[h] ?? 0) + (item.sets * c * st * headEmphasis(e, h)) / (1 + F[m] / 10);
+          sHead[h] =
+            (sHead[h] ?? 0) +
+            (item.sets * c * st * headEmphasis(e, h, item.variant)) / (1 + F[m] / 10);
       };
       e.primary.forEach((m) => apply(m, 1, true));
       e.secondary.forEach((m) => apply(m, 0.5, false));

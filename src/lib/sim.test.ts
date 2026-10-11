@@ -9,6 +9,7 @@ import {
   type Plan,
   type SimState,
 } from "./sim";
+import { EXERCISES, HEADS_OF, MUSCLE_IDS, headEmphasis, type Head } from "./training";
 
 const man = { sex: "m" as const, height: 178, weight: 78, bf: 16 };
 const free: Options = { pro: false, nutrition: { kcal: 3000, protein: 2 }, hormone: "supra" };
@@ -82,11 +83,61 @@ describe("simulação", () => {
 });
 
 describe("cabeças musculares", () => {
-  const only = (exId: string): Plan => {
+  const only = (exId: string, variant?: string): Plan => {
     const p = emptyPlan();
-    for (const d of [0, 2, 4]) p[d] = [{ exId, sets: 5, reps: 10, intensity: "pesada" }];
+    for (const d of [0, 2, 4]) p[d] = [{ exId, variant, sets: 5, reps: 10, intensity: "pesada" }];
     return p;
   };
+  const gain = (s: SimState, h: Head) => s.headDev[h] - initSim(man).headDev[h];
+
+  it("cada cabeça tem um exercício que a faz crescer mais que as vizinhas", () => {
+    const misses: string[] = [];
+    for (const m of MUSCLE_IDS) {
+      const heads = HEADS_OF[m];
+      if (heads.length < 2) continue;
+      for (const h of heads) {
+        // the exercise / grip with the largest emphasis margin over the other heads of the muscle
+        let best: { id: string; v: string | undefined; margin: number } | null = null;
+        for (const e of EXERCISES)
+          for (const v of e.variants ?? [undefined]) {
+            const w = headEmphasis(e, h, v?.id);
+            if (!e.primary.includes(m) || w === 0) continue;
+            const other = Math.max(
+              ...heads.filter((x) => x !== h).map((x) => headEmphasis(e, x, v?.id)),
+            );
+            const margin = w - other;
+            if (!best || margin > best.margin) best = { id: e.id, v: v?.id, margin };
+          }
+        if (!best) {
+          misses.push(`${h}: nenhum exercício`);
+          continue;
+        }
+        const s = run(only(best.id, best.v), bulk, 10);
+        const g = gain(s, h);
+        const rival = heads.filter((x) => x !== h).find((x) => gain(s, x) >= g);
+        if (rival)
+          misses.push(`${h} (${best.id}${best.v ? "/" + best.v : ""}) perde para ${rival}`);
+      }
+    }
+    expect(misses).toEqual([]);
+  });
+  it("pegada muda a ênfase: barra fixa aberta = dorsal alta, supinada/neutra = dorsal baixa", () => {
+    const wide = run(only("pullup", "wide"), bulk, 10);
+    const under = run(only("pullup", "under"), bulk, 10);
+    const neutral = run(only("pullup", "neutral"), bulk, 10);
+    expect(gain(wide, "lats_upper")).toBeGreaterThan(gain(wide, "lats_lower"));
+    expect(gain(under, "lats_lower")).toBeGreaterThan(gain(under, "lats_upper"));
+    expect(gain(neutral, "lats_lower")).toBeGreaterThan(gain(neutral, "lats_upper"));
+    // supinated grip loads the biceps more; neutral grip the brachialis and brachioradialis
+    expect(gain(under, "biceps_short")).toBeGreaterThan(gain(neutral, "biceps_short"));
+    expect(gain(neutral, "brachioradialis")).toBeGreaterThan(gain(under, "brachioradialis"));
+  });
+  it("trapézio: encolhimento cresce a parte superior; Y no banco, a inferior", () => {
+    const shrug = run(only("shrug"), bulk, 10);
+    const y = run(only("yRaise"), bulk, 10);
+    expect(gain(shrug, "traps_upper")).toBeGreaterThan(gain(shrug, "traps_lower"));
+    expect(gain(y, "traps_lower")).toBeGreaterThan(gain(y, "traps_upper"));
+  });
   it("tríceps francês desenvolve mais a cabeça longa; pulley, a lateral", () => {
     const fr = run(only("frenchPress"), bulk, 12);
     const pd = run(only("pushdown"), bulk, 12);

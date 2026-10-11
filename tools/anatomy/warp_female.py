@@ -41,12 +41,16 @@ def prepare(mh_dir, za_skin_pos, out, sex="f"):
     male = V + T("macrodetails/caucasian-male-young")
     M = male[body]
     if sex == "f":
-        # athletic model proportions: ideal proportions, fuller hips and glutes
+        # fitness-model proportions: ideal proportions, full bust, narrow waist and flat
+        # stomach, wide hips, round glutes and long legs (hourglass)
         Fm = (V + T("macrodetails/caucasian-female-young")
-              + 0.6 * T("breast/female-young-averagemuscle-averageweight-maxcup-averagefirmness")
+              + 0.85 * T("breast/female-young-averagemuscle-averageweight-maxcup-averagefirmness")
               + 1.0 * T("macrodetails/proportions/female-young-averagemuscle-averageweight-idealproportions")
-              + 0.35 * T("hip/hip-scale-horiz-incr")
-              + 0.55 * T("buttocks/buttocks-volume-incr"))[body]
+              + 0.45 * T("hip/hip-scale-horiz-incr")
+              + 0.85 * T("buttocks/buttocks-volume-incr")
+              + 0.6 * T("measure/measure-waist-circ-decr")
+              + 0.4 * T("stomach/stomach-pregnant-decr")
+              + 0.3 * T("armslegs/upperlegs-height-incr"))[body]
     else:
         # same man with "ideal" (classical) proportions
         Fm = (male + 1.0 * T("macrodetails/proportions/male-young-averagemuscle-averageweight-idealproportions"))[body]

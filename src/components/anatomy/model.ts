@@ -312,6 +312,37 @@ export function deform(
     }
     [D, T] = [T, D];
   }
+  // thick soft tissue (breasts, glutes, belly) spreads the push of the muscle underneath
+  // instead of copying its shape, so the bust stays round as the pecs grow
+  const deep = deepVerts(m);
+  for (let it = 0; it < 14; it++) {
+    for (let k = 0; k < deep.idx.length; k++) {
+      const i = deep.idx[k]!;
+      const a = adj.start[i]!,
+        b = adj.start[i + 1]!;
+      let sx = 0,
+        sy = 0,
+        sz = 0;
+      for (let e = a; e < b; e++) {
+        const q = adj.nbr[e]! * 3;
+        sx += D[q]!;
+        sy += D[q + 1]!;
+        sz += D[q + 2]!;
+      }
+      const n = b - a || 1;
+      const w = deep.w[k]!;
+      const j = i * 3;
+      T[j] = (1 - w) * D[j]! + (w * sx) / n;
+      T[j + 1] = (1 - w) * D[j + 1]! + (w * sy) / n;
+      T[j + 2] = (1 - w) * D[j + 2]! + (w * sz) / n;
+    }
+    for (let k = 0; k < deep.idx.length; k++) {
+      const j = deep.idx[k]! * 3;
+      D[j] = T[j]!;
+      D[j + 1] = T[j + 1]!;
+      D[j + 2] = T[j + 2]!;
+    }
+  }
   const abdIdx = Math.max(0, regions.indexOf("abdomen"));
   const bellyK = sex === "m" ? 0.0016 : 0.0009;
   // fat layer: thickness per vertex, then smoothed so extra fat rounds the contours off
@@ -348,6 +379,72 @@ export function deform(
     out.skin[j + 1] = sk.pos[j + 1]! + D[j + 1]! + sk.nrm[j + 1]! * f;
     out.skin[j + 2] = sk.pos[j + 2]! + D[j + 2]! + sk.nrm[j + 2]! * f;
   }
+}
+
+/** normals for the clothing layers: the skin normals averaged over the fabric area */
+export function smoothLayerNormals(
+  m: BodyModel,
+  skinNrm: Float32Array,
+  out: Float32Array,
+  iters = 24,
+) {
+  const adj = skinAdjacency(m);
+  const cw = m.skin.clothW;
+  const n = m.skin.depth.length;
+  out.set(skinNrm);
+  const tmp = new Float32Array(out.length);
+  const act: number[] = [];
+  for (let i = 0; i < n; i++) if (Math.max(cw[i * 3]!, cw[i * 3 + 1]!) > 0) act.push(i);
+  const A = out,
+    B = tmp;
+  for (let it = 0; it < iters; it++) {
+    for (const i of act) {
+      const a = adj.start[i]!,
+        b = adj.start[i + 1]!;
+      let sx = 0,
+        sy = 0,
+        sz = 0;
+      for (let e = a; e < b; e++) {
+        const q = adj.nbr[e]! * 3;
+        sx += A[q]!;
+        sy += A[q + 1]!;
+        sz += A[q + 2]!;
+      }
+      const j = i * 3;
+      const x = A[j]! + sx / (b - a || 1),
+        y = A[j + 1]! + sy / (b - a || 1),
+        z = A[j + 2]! + sz / (b - a || 1);
+      const l = Math.hypot(x, y, z) || 1;
+      B[j] = x / l;
+      B[j + 1] = y / l;
+      B[j + 2] = z / l;
+    }
+    for (const i of act) {
+      const j = i * 3;
+      A[j] = B[j]!;
+      A[j + 1] = B[j + 1]!;
+      A[j + 2] = B[j + 2]!;
+    }
+  }
+}
+
+const deepCache = new WeakMap<BodyModel, { idx: Uint32Array; w: Float32Array }>();
+/** skin vertices with a thick layer under them, and how strongly to spread their motion */
+function deepVerts(m: BodyModel) {
+  let d = deepCache.get(m);
+  if (d) return d;
+  const idx: number[] = [];
+  const w: number[] = [];
+  for (let i = 0; i < m.skin.depth.length; i++) {
+    const t = (m.skin.depth[i]! - 0.012) / 0.025;
+    if (t > 0) {
+      idx.push(i);
+      w.push(0.9 * Math.min(1, t));
+    }
+  }
+  d = { idx: Uint32Array.from(idx), w: Float32Array.from(w) };
+  deepCache.set(m, d);
+  return d;
 }
 
 const adjCache = new WeakMap<BodyModel, { start: Uint32Array; nbr: Uint32Array }>();
