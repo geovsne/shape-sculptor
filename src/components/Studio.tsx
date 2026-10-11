@@ -33,6 +33,7 @@ import {
 import { RoutineEditor } from "./sim/RoutineEditor";
 import { DietPanel, HormonePanel } from "./sim/ProPanels";
 import { StatusPanel } from "./sim/StatusPanel";
+import { MiniMap } from "./sim/MiniMap";
 import { Pill, RangeField } from "./sim/ui";
 
 const EQUIPS: (Equip | "Todos")[] = ["Todos", "Máquina", "Peso livre", "Cabo", "Corporal"];
@@ -460,6 +461,25 @@ export function Studio() {
 
         {/* Right panel */}
         <aside className="glass rounded-[28px] p-6 lg:absolute lg:bottom-24 lg:right-6 lg:top-28 lg:w-[340px] lg:overflow-y-auto">
+          {(mode === "explore" || sim) && (
+            <div className="mb-5">
+              <MiniMap
+                colorFor={colorFor}
+                onPick={(m, h) => {
+                  setMode("explore");
+                  setSkin(0);
+                  setMuscle(m);
+                  setPickedHead(h);
+                  setExId(null);
+                }}
+              />
+              {mode === "sim" && (
+                <div className="mt-1 text-center text-[10px] text-muted-foreground">
+                  Cor = desenvolvimento de cada região · toque para explorar
+                </div>
+              )}
+            </div>
+          )}
           {mode === "explore" ? (
             <>
               <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
