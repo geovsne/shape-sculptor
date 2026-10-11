@@ -57,7 +57,7 @@ export function buildMuscleDetail(layer: AtlasLayer) {
       const belly = flat ? (belly1 * Math.max(0, Math.sin(Math.PI * t2))) ** 0.45 : belly1 ** 0.6;
       let termination = tendon ? 1 : 1 - belly;
       if (p.base === "Rectus abdominis muscle") {
-        const groove = Math.max(...[0.47, 0.66, 0.84].map((h) => Math.exp(-((height - h) / 0.035) ** 2)), Math.exp(-(x / 0.0075) ** 2));
+        const groove = Math.max(...[0.47, 0.66, 0.84].map((h) => Math.exp(-(((height - h) / 0.035) ** 2))), Math.exp(-((x / 0.0075) ** 2)));
         termination = Math.max(termination, 0.9 * groove);
       }
       axis.toArray(fiber, i * 3);
