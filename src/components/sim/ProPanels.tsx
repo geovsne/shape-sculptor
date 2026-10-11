@@ -6,6 +6,8 @@ import {
   type Nutrition,
   type Plan,
   type SimState,
+  kcalOf,
+  macrosFor,
 } from "@/lib/sim";
 import { AlertRow, RangeField } from "./ui";
 
@@ -62,35 +64,51 @@ export function DietPanel({
           </div>
         </div>
         <Locked title="Dieta personalizada" onUnlock={onUnlock}>
-          No grátis o avatar come exatamente o que gasta, e a mudança vem só do treino. No PRO você
-          define calorias e proteína: com superávit e bom treino ele ganha músculo (e um pouco de
-          gordura); com déficit ele seca; com treino pesado e dieta ruim ele perde músculo.
+          No grátis o avatar come exatamente o que gasta para o peso dele, e a mudança vem só do
+          treino. No PRO você monta a dieta em calorias, proteína, carboidrato e gordura: com
+          superávit e bom treino ele ganha músculo; com déficit ele seca; pouco carboidrato rende
+          menos treino e pouca gordura derruba os hormônios.
         </Locked>
       </div>
     );
   }
-  const r = nutrition.kcal / spend;
+  const w = sim.profile.weight;
+  const m = {
+    protein: nutrition.protein,
+    carbs: nutrition.carbs ?? macrosFor(nutrition.kcal, w, nutrition.protein, 0.9).carbs!,
+    fat: nutrition.fat ?? 0.9,
+  };
+  const kcal = kcalOf(m, w);
+  const setMacro = (patch: Partial<typeof m>) => {
+    const next = { ...m, ...patch };
+    setNutrition({ ...next, kcal: kcalOf(next, w) });
+  };
+  const r = kcal / spend;
   const presets = [
-    { label: "Déficit agressivo", kcal: Math.round((spend * 0.75) / 50) * 50 },
-    { label: "Déficit", kcal: Math.round((spend * 0.85) / 50) * 50 },
-    { label: "Manutenção", kcal: Math.round(spend / 50) * 50 },
-    { label: "Superávit", kcal: Math.round((spend * 1.12) / 50) * 50 },
+    { label: "Déficit agressivo", kcal: spend * 0.75 },
+    { label: "Déficit", kcal: spend * 0.85 },
+    { label: "Manutenção", kcal: spend },
+    { label: "Superávit", kcal: spend * 1.12 },
+  ].map((p) => ({ ...p, n: macrosFor(p.kcal, w, 2, 0.9) }));
+  const parts = [
+    { k: "Proteína", kcal: m.protein * 4 * w, c: "bg-primary" },
+    { k: "Carboidrato", kcal: m.carbs * 4 * w, c: "bg-amber-500" },
+    { k: "Gordura", kcal: m.fat * 9 * w, c: "bg-foreground" },
   ];
-  const proteinG = Math.round(nutrition.protein * sim.profile.weight);
   return (
     <div className="space-y-4">
       <div className="rounded-2xl bg-secondary p-4">
         <div className="flex items-baseline justify-between">
           <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Balanço diário
+            {kcal} kcal por dia
           </span>
           <span className="text-[10px] text-muted-foreground">gasto ~{spend} kcal</span>
         </div>
         <div
           className={`mt-1 font-display text-3xl font-bold tabular-nums ${r < 0.8 ? "text-destructive" : ""}`}
         >
-          {nutrition.kcal - spend > 0 ? "+" : ""}
-          {nutrition.kcal - spend} kcal
+          {kcal - spend > 0 ? "+" : ""}
+          {kcal - spend} kcal
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
           {r >= 1.05
@@ -101,40 +119,67 @@ export function DietPanel({
                 ? "Déficit: perde gordura e preserva músculo se a proteína estiver alta."
                 : "Déficit agressivo: perde gordura rápido e também músculo."}
         </div>
+        <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-background">
+          {parts.map((p) => (
+            <div
+              key={p.k}
+              className={p.c}
+              style={{ width: `${(p.kcal / Math.max(1, kcal)) * 100}%` }}
+              title={`${p.k}: ${Math.round((p.kcal / Math.max(1, kcal)) * 100)}%`}
+            />
+          ))}
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
+          {parts.map((p) => (
+            <span key={p.k}>
+              {p.k} {Math.round((p.kcal / Math.max(1, kcal)) * 100)}%
+            </span>
+          ))}
+        </div>
       </div>
       <div className="flex flex-wrap gap-1">
         {presets.map((p) => (
           <button
             type="button"
             key={p.label}
-            onClick={() => setNutrition({ ...nutrition, kcal: p.kcal })}
-            className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${nutrition.kcal === p.kcal ? "border-foreground bg-foreground text-background" : "hover:bg-secondary"}`}
+            onClick={() => setNutrition(p.n)}
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${Math.abs(kcal - p.n.kcal) < 30 ? "border-foreground bg-foreground text-background" : "hover:bg-secondary"}`}
           >
             {p.label}
           </button>
         ))}
       </div>
       <RangeField
-        label="Calorias por dia"
-        value={nutrition.kcal}
-        min={1000}
-        max={5000}
-        step={50}
-        unit=" kcal"
-        onChange={(v) => setNutrition({ ...nutrition, kcal: v })}
-      />
-      <RangeField
-        label={`Proteína (${proteinG} g por dia)`}
-        value={nutrition.protein}
+        label={`Proteína · ${Math.round(m.protein * w)} g/dia`}
+        value={m.protein}
         min={0.6}
-        max={3}
+        max={3.5}
         step={0.1}
         unit=" g/kg"
-        onChange={(v) => setNutrition({ ...nutrition, protein: v })}
+        onChange={(v) => setMacro({ protein: v })}
+      />
+      <RangeField
+        label={`Carboidrato · ${Math.round(m.carbs * w)} g/dia`}
+        value={m.carbs}
+        min={0}
+        max={9}
+        step={0.1}
+        unit=" g/kg"
+        onChange={(v) => setMacro({ carbs: v })}
+      />
+      <RangeField
+        label={`Gordura · ${Math.round(m.fat * w)} g/dia`}
+        value={m.fat}
+        min={0.2}
+        max={2.5}
+        step={0.1}
+        unit=" g/kg"
+        onChange={(v) => setMacro({ fat: v })}
       />
       <p className="text-[10px] leading-relaxed text-muted-foreground">
-        Referência: 1,6 a 2,2 g/kg de proteína maximiza o ganho muscular. Abaixo de 1,2 g/kg a
-        recuperação piora.
+        Proteína: 1,6 a 2,2 g/kg maximiza o ganho muscular. Carboidrato é o combustível do treino:
+        pouco carboidrato rende menos estímulo. Gordura abaixo de 0,5 g/kg derruba hormônios e piora
+        ganho e recuperação.
       </p>
     </div>
   );

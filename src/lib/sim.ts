@@ -152,7 +152,27 @@ export const HORMONE_LEVELS: Record<HormoneLevel, { label: string; desc: string 
   },
 };
 
-export type Nutrition = { kcal: number; protein: number /* g per kg of body weight */ };
+/** daily diet; macros in g per kg of body weight. kcal = 4·protein + 4·carbs + 9·fat */
+export type Nutrition = { kcal: number; protein: number; carbs?: number; fat?: number };
+
+/** macros (g/kg) that add up to a calorie target with the given protein and fat */
+export function macrosFor(kcal: number, weight: number, protein = 2, fat = 0.9): Nutrition {
+  const carbs = Math.max(0, (kcal - (protein * 4 + fat * 9) * weight) / 4 / weight);
+  return { kcal: Math.round(kcal), protein, fat, carbs: Math.round(carbs * 10) / 10 };
+}
+export const kcalOf = (n: { protein: number; carbs: number; fat: number }, weight: number) =>
+  Math.round((n.protein * 4 + n.carbs * 4 + n.fat * 9) * weight);
+
+/** effects of carbs (training fuel) and fat (hormones) on stimulus, growth and recovery */
+export function macroFx(n: Nutrition) {
+  const carbs = n.carbs ?? 3;
+  const fat = n.fat ?? 1;
+  return {
+    stim: clamp(0.9 + carbs / 20, 0.9, 1),
+    gain: fat < 0.5 ? 0.9 : 1,
+    rec: (fat < 0.5 ? 0.95 : 1) * (carbs < 1 ? 0.95 : 1),
+  };
+}
 export type Options = { pro: boolean; nutrition: Nutrition; hormone: HormoneLevel };
 
 /** Free plan eats at maintenance: calories match the estimated daily expenditure. */
@@ -544,7 +564,7 @@ export function tdee(profile: Profile, plan: Plan): number {
 }
 
 export const nutritionFor = (s: SimState, o: Options, plan: Plan): Nutrition =>
-  o.pro ? o.nutrition : { kcal: tdee(s.profile, plan), protein: BASAL_PROTEIN };
+  o.pro ? o.nutrition : macrosFor(tdee(s.profile, plan), s.profile.weight, BASAL_PROTEIN, 1);
 
 const energyMul = (r: number) => (r >= 1.05 ? 1.15 : r >= 0.95 ? 1 : r >= 0.8 ? 0.75 : 0.45);
 
@@ -711,6 +731,16 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
         level: "info",
         text: `Proteína em ${n.protein} g/kg. Abaixo de 1,6 g/kg o ganho muscular fica limitado.`,
       });
+    if ((n.fat ?? 1) < 0.5)
+      alerts.push({
+        level: "warn",
+        text: `Gordura em ${n.fat} g/kg. Abaixo de 0,5 g/kg a produção hormonal cai: ganho e recuperação pioram.`,
+      });
+    if ((n.carbs ?? 3) < 1.5 && Object.values(sets).some((v) => v > 0))
+      alerts.push({
+        level: "info",
+        text: `Carboidrato em ${n.carbs} g/kg. Com pouco glicogênio o treino rende menos.`,
+      });
   }
   if (s.overreach > 0.8)
     alerts.push({
@@ -746,6 +776,7 @@ function recoveryMul(s: SimState, o: Options, restDays: number, plan: Plan) {
   return (
     (r < 0.8 ? 0.8 : r < 0.95 ? 0.92 : 1) *
     (n.protein < 1.2 ? 0.9 : 1) *
+    macroFx(n).rec *
     h.rec *
     (restDays === 0 ? 0.88 : 1) *
     (s.overreach > 0.8 ? 0.8 : 1) *
@@ -790,7 +821,8 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
   const spend = tdee(s.profile, plan);
   const r = n.kcal / spend;
   const eMul = energyMul(r);
-  const pMul = clamp(n.protein / 1.6, 0.5, 1.05);
+  const mfx = macroFx(n);
+  const pMul = clamp(n.protein / 1.6, 0.5, 1.05) * mfx.gain;
   const restDays = plan.filter((d) => d.length === 0).length;
   const recMul = recoveryMul(
     { ...s, hormone: { ...s.hormone, postWeeks: post ? postWeeks : 0 } },
@@ -856,7 +888,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
       if (!e || item.sets <= 0) continue;
       const li = loadInfo(item, s, o.pro);
       const { stim: st0, fat } = perSet(item, li);
-      const st = st0 * romMul(item, o);
+      const st = st0 * romMul(item, o) * mfx.stim;
       const apply = (m: Muscle, c: number, primary: boolean) => {
         if (isInjured(m)) {
           const inj = primary

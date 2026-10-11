@@ -25,6 +25,7 @@ import {
   initSim,
   type HormoneLevel,
   type Nutrition,
+  macrosFor,
   type Options,
   type Plan,
   type SimState,
@@ -53,7 +54,7 @@ type Saved = {
   before?: string | null;
 };
 const DEFAULT_PROFILE: Profile = { sex: "m", height: 178, weight: 78, bf: 16 };
-const DEFAULT_NUTRITION: Nutrition = { kcal: 2600, protein: 1.8 };
+const DEFAULT_NUTRITION: Nutrition = macrosFor(2600, 78);
 function loadSaved(): Partial<Saved> {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -202,7 +203,7 @@ export function Studio() {
   const createAvatar = () => {
     setBefore(null);
     setSim(initSim(profile));
-    setNutrition({ kcal: Math.round(tdee(profile, plan) / 50) * 50 + 300, protein: 1.8 });
+    setNutrition(macrosFor(Math.round(tdee(profile, plan) / 50) * 50 + 300, profile.weight));
   };
 
   return (
