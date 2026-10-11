@@ -9,20 +9,23 @@ export function ExercisePicker({
   dayLabel,
   onPick,
   onClose,
+  initialMuscle = null,
 }: {
   dayLabel: string;
   onPick: (id: string) => void;
   onClose: () => void;
+  /** opened from a muscle tapped on the body: list only that muscle's exercises */
+  initialMuscle?: Muscle | null;
 }) {
   const [q, setQ] = useState("");
-  const [muscle, setMuscle] = useState<Muscle | null>(null);
+  const [muscle, setMuscle] = useState<Muscle | null>(initialMuscle);
   const [equip, setEquip] = useState<Equip | null>(null);
 
   const list = useMemo(() => {
     const term = q.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
     return EXERCISES.filter(
       (e) =>
-        (!muscle || e.primary.includes(muscle) || e.secondary.includes(muscle)) &&
+        (!muscle || e.primary.includes(muscle)) &&
         (!equip || e.equip === equip) &&
         (!term || e.name.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").includes(term)),
     );
@@ -56,7 +59,7 @@ export function ExercisePicker({
         </div>
         <input
           id="exercise-search"
-          autoFocus
+          autoFocus={!initialMuscle}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar exercício"

@@ -1,5 +1,14 @@
-import { useState } from "react";
-import { BENCH_ANGLES, DAYS, DAYS_FULL, EX_BY_ID, MUSCLES, ROMS, type Rom } from "@/lib/training";
+import { useEffect, useState } from "react";
+import {
+  BENCH_ANGLES,
+  DAYS,
+  DAYS_FULL,
+  EX_BY_ID,
+  MUSCLES,
+  ROMS,
+  type Muscle,
+  type Rom,
+} from "@/lib/training";
 import {
   INTENSITIES,
   INTENSITY_IDS,
@@ -20,15 +29,24 @@ export function RoutineEditor({
   sim,
   pro,
   onUnlock,
+  focus = null,
 }: {
   plan: Plan;
   setPlan: (fn: (p: Plan) => Plan) => void;
   sim: SimState;
   pro: boolean;
   onUnlock: () => void;
+  /** muscle tapped on the body (n changes on every tap): open the picker filtered to it */
+  focus?: { m: Muscle; n: number } | null;
 }) {
   const [day, setDay] = useState(0);
   const [picking, setPicking] = useState(false);
+  const [pickMuscle, setPickMuscle] = useState<Muscle | null>(null);
+  useEffect(() => {
+    if (!focus) return;
+    setPickMuscle(focus.m);
+    setPicking(true);
+  }, [focus]);
   const items = plan[day] ?? [];
 
   const update = (idx: number, patch: Partial<PlanItem>) =>
@@ -325,7 +343,11 @@ export function RoutineEditor({
         <ExercisePicker
           dayLabel={DAYS_FULL[day] ?? ""}
           onPick={add}
-          onClose={() => setPicking(false)}
+          onClose={() => {
+            setPicking(false);
+            setPickMuscle(null);
+          }}
+          initialMuscle={pickMuscle}
         />
       )}
     </div>

@@ -103,6 +103,13 @@ export function Studio() {
   const [hormone, setHormone] = useState<HormoneLevel>(saved.hormone ?? "nenhum");
   const [proModal, setProModal] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // tapping a muscle in the simulator opens the exercise list filtered to it
+  const [simFocus, setSimFocus] = useState<{ m: Muscle; n: number } | null>(null);
+  const pickInSim = (m: Muscle) => {
+    if (!sim) return;
+    setTab("rotina");
+    setSimFocus({ m, n: Date.now() });
+  };
   const [before, setBefore] = useState<string | null>(saved.before ?? null);
   const [sharing, setSharing] = useState(false);
   const captureRef = useRef<CaptureFn | null>(null);
@@ -223,7 +230,7 @@ export function Studio() {
           injured={injured}
           tendonInjured={tendonInjured}
           onPick={(m, h) => {
-            if (mode !== "explore") return;
+            if (mode !== "explore") return pickInSim(m);
             setMuscle(m);
             setPickedHead(h);
             setExId(null);
@@ -425,6 +432,7 @@ export function Studio() {
                     sim={sim}
                     pro={pro}
                     onUnlock={() => setProModal(true)}
+                    focus={simFocus}
                   />
                 )}
                 {tab === "dieta" && (
@@ -475,6 +483,7 @@ export function Studio() {
               <MiniMap
                 colorFor={colorFor}
                 onPick={(m, h) => {
+                  if (mode === "sim" && sim) return pickInSim(m);
                   setMode("explore");
                   setSkin(0);
                   setMuscle(m);
