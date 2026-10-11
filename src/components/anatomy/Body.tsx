@@ -32,13 +32,6 @@ const INJURY_COLOR = new THREE.Color("#3a0606");
 const TENDON_INJURY_COLOR = new THREE.Color("#ffb020");
 const HOVER_COLOR = new THREE.Color("#ff6a2a");
 const LIP_TINT = new THREE.Color(1, 0.72, 0.72);
-const TOP_COLOR = new THREE.Color("#ecebe8");
-const TOP_BAND = new THREE.Color("#cfcbc5");
-const SHORTS_COLOR = new THREE.Color("#4a5059");
-const SHORTS_BAND = new THREE.Color("#2c3037");
-const HAIR_M = new THREE.Color("#2b1d15");
-const HAIR_F = new THREE.Color("#4a2c1a");
-const HAIR_TIE = new THREE.Color("#1f1f24");
 const SCLERA = new THREE.Color("#ece5dc");
 const IRIS = new THREE.Color("#7a5232");
 const IRIS_IN = new THREE.Color("#a77a45");
@@ -107,20 +100,6 @@ function layerMaterial(mat: THREE.Material, offset: number, channel: number) {
   return mat;
 }
 
-function subsetIndex(m: BodyModel, channel: number) {
-  const idx = m.skin.idx;
-  const w = m.skin.clothW;
-  const out: number[] = [];
-  for (let f = 0; f < idx.length; f += 3) {
-    const a = idx[f]!,
-      b = idx[f + 1]!,
-      c = idx[f + 2]!;
-    if (Math.max(w[a * 3 + channel]!, w[b * 3 + channel]!, w[c * 3 + channel]!) > 0.5)
-      out.push(a, b, c);
-  }
-  return new Uint32Array(out);
-}
-
 function buildGeometries(m: BodyModel) {
   const muscle = new THREE.BufferGeometry();
   muscle.setAttribute("position", new THREE.BufferAttribute(m.muscle.pos.slice(), 3));
@@ -137,57 +116,68 @@ function buildGeometries(m: BodyModel) {
   bone.setAttribute("normal", new THREE.BufferAttribute(m.bone.nrm, 3));
   bone.setIndex(new THREE.BufferAttribute(m.bone.idx, 1));
 
-  const skinPos = new THREE.BufferAttribute(m.skin.pos.slice(), 3);
-  const skinNrm = new THREE.BufferAttribute(m.skin.nrm.slice(), 3);
+  // skin render vertices = originals + copies along texture seams
+  const N = m.skin.depth.length;
+  const dup = m.skin.dup;
+  const ext = (a: Float32Array, n: number) => {
+    const out = new Float32Array((N + dup.length) * n);
+    out.set(a.subarray(0, N * n));
+    for (let k = 0; k < dup.length; k++)
+      for (let c = 0; c < n; c++) out[(N + k) * n + c] = a[dup[k]! * n + c]!;
+    return out;
+  };
+  const skinPos = new THREE.BufferAttribute(ext(m.skin.pos, 3), 3);
+  const skinNrm = new THREE.BufferAttribute(ext(m.skin.nrm, 3), 3);
   const skin = new THREE.BufferGeometry();
   skin.setAttribute("position", skinPos);
   skin.setAttribute("normal", skinNrm);
-  skin.setAttribute("fiber", new THREE.BufferAttribute(m.skin.fiber, 3));
-  skin.setAttribute("fiberMask", new THREE.BufferAttribute(m.skin.bindSum, 1));
+  skin.setAttribute("fiber", new THREE.BufferAttribute(ext(m.skin.fiber, 3), 3));
+  skin.setAttribute("fiberMask", new THREE.BufferAttribute(ext(m.skin.bindSum, 1), 1));
   const tint = new Float32Array(m.skin.tint.length * 3);
   const c = new THREE.Color();
   for (let i = 0; i < m.skin.tint.length; i++) {
-    c.setRGB(1, 1, 1).lerp(LIP_TINT, m.skin.tint[i]!);
+    // with a real skin texture the lips are already painted
+    const t = m.skin.tone;
+    if (t) c.setRGB(t[i * 3]!, t[i * 3 + 1]!, t[i * 3 + 2]!);
+    else c.setRGB(1, 1, 1);
+    c.lerp(LIP_TINT, m.skin.tint[i]! * 0.8);
     tint[i * 3] = c.r;
     tint[i * 3 + 1] = c.g;
     tint[i * 3 + 2] = c.b;
   }
-  skin.setAttribute("color", new THREE.BufferAttribute(tint, 3));
-  skin.setIndex(new THREE.BufferAttribute(m.skin.idx, 1));
+  skin.setAttribute("color", new THREE.BufferAttribute(ext(tint, 3), 3));
+  if (m.skin.uv) skin.setAttribute("uv", new THREE.BufferAttribute(m.skin.uv, 2));
+  skin.setIndex(new THREE.BufferAttribute(m.skin.renderIdx, 1));
 
-  // clothes and hair cap share the (deformed) skin vertices; fabric gets its own,
-  // smoother normals so it drapes over small skin details instead of revealing them
-  const clothW = new THREE.BufferAttribute(m.skin.clothW, 3);
-  const fabricNrm = new THREE.BufferAttribute(m.skin.nrm.slice(), 3);
-  const sub = (channel: number) => {
+  // hair cap (scalp under the hair) shares the deformed skin vertices
+  const clothWArr = ext(m.skin.clothW, 3);
+  const clothW = new THREE.BufferAttribute(clothWArr, 3);
+  const capIdx: number[] = [];
+  const ri = m.skin.renderIdx;
+  for (let f = 0; f < ri.length; f += 3)
+    if (
+      Math.max(
+        clothWArr[ri[f]! * 3 + 2]!,
+        clothWArr[ri[f + 1]! * 3 + 2]!,
+        clothWArr[ri[f + 2]! * 3 + 2]!,
+      ) > 0.5
+    )
+      capIdx.push(ri[f]!, ri[f + 1]!, ri[f + 2]!);
+  const cap = new THREE.BufferGeometry();
+  cap.setAttribute("position", skinPos);
+  cap.setAttribute("normal", skinNrm);
+  cap.setAttribute("clothW", clothW);
+  cap.setIndex(new THREE.BufferAttribute(new Uint32Array(capIdx), 1));
+
+  // MakeHuman clothes, hair and eyebrows: their own meshes riding on the skin
+  const assets = m.assets.map((a) => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", skinPos);
-    g.setAttribute("normal", channel === 2 ? skinNrm : fabricNrm);
-    g.setAttribute("clothW", clothW);
-    g.setIndex(new THREE.BufferAttribute(subsetIndex(m, channel), 1));
+    g.setAttribute("position", new THREE.BufferAttribute(a.pos.slice(), 3));
+    g.setAttribute("normal", new THREE.BufferAttribute(a.nrm.slice(), 3));
+    g.setAttribute("uv", new THREE.BufferAttribute(a.uv, 2));
+    g.setIndex(new THREE.BufferAttribute(a.idx, 1));
     return g;
-  };
-  const cap = sub(2);
-
-  // clothes: own meshes that follow the skin; colour by piece, darker waistband and hems
-  const garment = new THREE.BufferGeometry();
-  garment.setAttribute("position", new THREE.BufferAttribute(m.garment.pos.slice(), 3));
-  garment.setAttribute("normal", new THREE.BufferAttribute(m.garment.nrm.slice(), 3));
-  const gc = new Float32Array(m.garment.kind.length * 3);
-  const gf = new Float32Array(m.garment.kind.length * 3);
-  for (let i = 0; i < m.garment.kind.length; i++) {
-    const top = m.garment.kind[i] === 1;
-    c.copy(top ? TOP_COLOR : SHORTS_COLOR).lerp(
-      top ? TOP_BAND : SHORTS_BAND,
-      m.garment.band[i]!,
-    );
-    gc.set([c.r, c.g, c.b], i * 3);
-    gf.set([0, 1, 0], i * 3);
-  }
-  garment.setAttribute("color", new THREE.BufferAttribute(gc, 3));
-  garment.setAttribute("fiber", new THREE.BufferAttribute(gf, 3));
-  garment.setAttribute("fiberMask", new THREE.BufferAttribute(new Float32Array(gc.length / 3).fill(1), 1));
-  garment.setIndex(new THREE.BufferAttribute(m.garment.idx, 1));
+  });
 
   const eye = new THREE.BufferGeometry();
   eye.setAttribute("position", new THREE.BufferAttribute(m.eye.pos, 3));
@@ -209,20 +199,8 @@ function buildGeometries(m: BodyModel) {
   const hair = new THREE.BufferGeometry();
   hair.setAttribute("position", new THREE.BufferAttribute(m.hair.pos.slice(), 3));
   hair.setAttribute("normal", new THREE.BufferAttribute(m.hair.nrm.slice(), 3));
-  const hc = new Float32Array(m.hair.kind.length * 3);
-  const hm = new Float32Array(m.hair.kind.length);
-  const hairCol = m.header.sex === "m" ? HAIR_M : HAIR_F;
-  for (let i = 0; i < m.hair.kind.length; i++) {
-    const k = m.hair.kind[i]!;
-    c.copy(k === 2 ? HAIR_TIE : hairCol);
-    hc.set([c.r, c.g, c.b], i * 3);
-    hm[i] = k === 1 ? 1 : 0;
-  }
-  hair.setAttribute("color", new THREE.BufferAttribute(hc, 3));
-  hair.setAttribute("fiber", new THREE.BufferAttribute(m.hair.dir, 3));
-  hair.setAttribute("fiberMask", new THREE.BufferAttribute(hm, 1));
   hair.setIndex(new THREE.BufferAttribute(m.hair.idx, 1));
-  return { muscle, bone, skin, cap, eye, hair, garment };
+  return { muscle, bone, skin, cap, eye, hair, assets };
 }
 
 export function Body({
@@ -254,12 +232,22 @@ export function Body({
   const geo = useMemo(() => (model ? buildGeometries(model) : null), [model]);
   useEffect(
     () => () => {
-      if (geo) Object.values(geo).forEach((g) => g.dispose());
+      if (geo)
+        Object.values(geo).forEach((g) => (Array.isArray(g) ? g : [g]).forEach((x) => x.dispose()));
     },
     [geo],
   );
 
   const mats = useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    const tex = (path: string | null | undefined) => {
+      if (!path) return null;
+      const t = loader.load(`/models/${path}`);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 4;
+      return t;
+    };
+    const skinTex = tex(model?.header.skinTex);
     const muscle = withFibers(
       new THREE.MeshPhysicalMaterial({
         vertexColors: true,
@@ -273,7 +261,8 @@ export function Body({
     );
     const skinMat = withFibers(
       new THREE.MeshPhysicalMaterial({
-        color: sex === "m" ? "#d9a98c" : "#e6b9a0",
+        color: skinTex ? "#ffffff" : sex === "m" ? "#d9a98c" : "#e6b9a0",
+        map: skinTex,
         vertexColors: true,
         roughness: 0.62,
         sheen: 0.4,
@@ -285,19 +274,35 @@ export function Body({
       }),
       0,
     );
-    // knit fabric: matte, soft sheen, fine vertical ribs
-    const cloth = withFibers(
-      new THREE.MeshPhysicalMaterial({
-        vertexColors: true,
-        roughness: 0.92,
-        sheen: 0.7,
-        sheenRoughness: 0.6,
-        sheenColor: new THREE.Color("#ffffff"),
-        transparent: true,
+    // MakeHuman pieces: fabric (texture as greyscale detail, tinted), hair cards, eyebrows
+    const assets = (model?.assets ?? []).map((a) => {
+      const map = tex(a.tex);
+      if (a.kind === "cloth")
+        return new THREE.MeshPhysicalMaterial({
+          map,
+          color: a.color ?? "#ffffff",
+          roughness: 0.9,
+          sheen: 0.6,
+          sheenRoughness: 0.55,
+          sheenColor: new THREE.Color("#ffffff"),
+          transparent: true,
+          side: THREE.DoubleSide,
+        });
+      if (a.kind === "hair")
+        return new THREE.MeshStandardMaterial({
+          map,
+          alphaTest: 0.45,
+          roughness: 0.6,
+          side: THREE.DoubleSide,
+          transparent: true,
+        });
+      return new THREE.MeshStandardMaterial({
+        color: a.color ?? "#2a1a12",
+        roughness: 0.9,
         side: THREE.DoubleSide,
-      }),
-      0.1,
-    );
+        transparent: true,
+      });
+    });
     const capMat = layerMaterial(
       new THREE.MeshStandardMaterial({
         color: sex === "m" ? "#2a1d16" : "#3b2416",
@@ -307,28 +312,26 @@ export function Body({
       sex === "m" ? 0.0028 : 0.0065,
       2,
     );
-    // strands as fine stripes along the combing direction, with a soft sheen
-    const hair = withFibers(
-      new THREE.MeshPhysicalMaterial({
-        vertexColors: true,
-        roughness: 0.48,
-        sheen: 0.6,
-        sheenRoughness: 0.35,
-        sheenColor: new THREE.Color(sex === "m" ? "#6b4a35" : "#8a5b3a"),
-        transparent: true,
-        side: THREE.DoubleSide,
-      }),
-      0.55,
-    );
+    // eyelashes
+    const hair = new THREE.MeshStandardMaterial({
+      color: "#1c120c",
+      roughness: 0.8,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
     const eye = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
       roughness: 0.15,
       clearcoat: 1,
     });
     const bone = new THREE.MeshStandardMaterial({ color: "#ebe4d3", roughness: 0.6 });
-    return { muscle, skin: skinMat, cloth, cap: capMat, hair, eye, bone };
-  }, [sex]);
-  useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
+    return { muscle, skin: skinMat, assets, cap: capMat, hair, eye, bone };
+  }, [sex, model]);
+  useEffect(
+    () => () =>
+      Object.values(mats).forEach((m) => (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose())),
+    [mats],
+  );
 
   // shape: muscle growth (head by head) and body fat
   const devKey = HEAD_IDS.map((h) => headDev[h].toFixed(3)).join(",");
@@ -342,17 +345,32 @@ export function Body({
       muscle: mp.array as Float32Array,
       skin: sp.array as Float32Array,
     });
+    // seam copies sit exactly on their originals
+    const N = model.skin.depth.length;
+    const dup = model.skin.dup;
+    const spa = sp.array as Float32Array;
+    for (let k = 0; k < dup.length; k++) spa.copyWithin((N + k) * 3, dup[k]! * 3, dup[k]! * 3 + 3);
     mp.needsUpdate = true;
     sp.needsUpdate = true;
     geo.muscle.computeVertexNormals();
     geo.skin.computeVertexNormals();
-    (geo.skin.getAttribute("normal") as THREE.BufferAttribute).needsUpdate = true;
-    // clothes and hair ride on the deformed skin
-    const skinNow = sp.array as Float32Array;
-    for (const [g, part] of [
-      [geo.garment, model.garment],
+    const sn = geo.skin.getAttribute("normal") as THREE.BufferAttribute;
+    const sna = sn.array as Float32Array;
+    for (let k = 0; k < dup.length; k++) {
+      const a = dup[k]! * 3,
+        b = (N + k) * 3;
+      for (let c = 0; c < 3; c++) sna[a + c] = sna[b + c] = sna[a + c]! + sna[b + c]!;
+    }
+    sn.needsUpdate = true;
+    // clothes, hair and eyebrows ride on the deformed skin
+    const skinNow = spa;
+    const riders: [THREE.BufferGeometry, { pos: Float32Array; bind: Uint32Array }][] = [
       [geo.hair, model.hair],
-    ] as const) {
+      ...geo.assets.map(
+        (g, k) => [g, model.assets[k]!] as [THREE.BufferGeometry, (typeof model.assets)[number]],
+      ),
+    ];
+    for (const [g, part] of riders) {
       const gp = g.getAttribute("position") as THREE.BufferAttribute;
       follow(part.pos, part.bind, model.skin.pos, skinNow, gp.array as Float32Array);
       gp.needsUpdate = true;
@@ -409,7 +427,7 @@ export function Body({
     const coverOpacity = Math.min(1, skin * 1.6);
     mats.skin.opacity = skin;
     mats.skin.depthWrite = skin > 0.95;
-    for (const m of [mats.cloth, mats.cap, mats.hair]) {
+    for (const m of [...mats.assets, mats.cap, mats.hair]) {
       m.opacity = coverOpacity;
       m.depthWrite = coverOpacity > 0.95;
       m.needsUpdate = true;
@@ -468,13 +486,16 @@ export function Body({
             renderOrder={2}
             castShadow
           />
-          <mesh
-            geometry={geo.garment}
-            material={mats.cloth}
-            raycast={() => null}
-            renderOrder={3}
-            castShadow
-          />
+          {geo.assets.map((g, k) => (
+            <mesh
+              key={k}
+              geometry={g}
+              material={mats.assets[k]!}
+              raycast={() => null}
+              renderOrder={model.assets[k]?.kind === "hair" ? 4 : 3}
+              castShadow={model.assets[k]?.kind === "cloth"}
+            />
+          ))}
           <mesh geometry={geo.cap} material={mats.cap} raycast={() => null} renderOrder={3} />
           <mesh geometry={geo.hair} material={mats.hair} raycast={() => null} renderOrder={3} />
         </>

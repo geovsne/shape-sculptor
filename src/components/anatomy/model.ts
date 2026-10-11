@@ -33,6 +33,26 @@ type Header = {
   depthMax: number;
   bindK: number;
   restBf: number;
+  /** MakeHuman skin texture (relative to /models/) */
+  skinTex?: string;
+  assets?: AssetMeta[];
+};
+
+/** clothes, hair and eyebrows from MakeHuman asset packs (credited in the app) */
+export type AssetMeta = {
+  name: string;
+  kind: "cloth" | "hair" | "brow";
+  tex: string | null;
+  color: string | null;
+  credit: string;
+};
+
+export type Asset = AssetMeta & {
+  pos: Float32Array;
+  nrm: Float32Array;
+  idx: Uint32Array;
+  uv: Float32Array;
+  bind: Uint32Array;
 };
 
 export type BodyModel = {
@@ -52,24 +72,9 @@ export type BodyModel = {
   };
   bone: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array };
   eye: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array; kind: Float32Array };
-  /** brows/lashes (kind 0), hair mass (1), hair tie (2); each vertex follows one skin vertex */
-  hair: {
-    pos: Float32Array;
-    nrm: Float32Array;
-    idx: Uint32Array;
-    bind: Uint32Array;
-    kind: Uint8Array;
-    dir: Float32Array;
-  };
-  /** clothes: shorts (kind 0) and sports bra (1); band = waistband / hem (0..1) */
-  garment: {
-    pos: Float32Array;
-    nrm: Float32Array;
-    idx: Uint32Array;
-    bind: Uint32Array;
-    kind: Uint8Array;
-    band: Float32Array;
-  };
+  /** eyelashes; each vertex follows the nearest skin vertex */
+  hair: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array; bind: Uint32Array };
+  assets: Asset[];
   skin: {
     pos: Float32Array;
     nrm: Float32Array;
@@ -85,6 +90,14 @@ export type BodyModel = {
     /** smooth masks per vertex: shorts, top, hair cap (0.5 = edge) */
     clothW: Float32Array;
     tint: Float32Array;
+    /** texture coordinates for the render vertices (originals then seam copies) */
+    uv: Float32Array | null;
+    /** triangles over the render vertices (with seam copies) */
+    renderIdx: Uint32Array;
+    /** for each seam copy, the original vertex it duplicates */
+    dup: Uint32Array;
+    /** per-vertex colour correction evening out the texture's tone (rgb, 0..2) */
+    tone: Float32Array | null;
   };
 };
 
@@ -135,6 +148,7 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
     const count = s.shape.reduce((a, b) => a * b, 1);
     return new C(buf, s.offset, count);
   };
+  const has = (name: string) => h.sections.some((x) => x.name === name);
   const pos = (name: string) => {
     const q = raw(name) as Uint16Array;
     const out = new Float32Array(q.length);
@@ -199,17 +213,15 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
       nrm: unit("hair.nrm"),
       idx: raw("hair.idx") as Uint32Array,
       bind: raw("hair.bind") as Uint32Array,
-      kind: raw("hair.kind") as Uint8Array,
-      dir: unit("hair.dir"),
     },
-    garment: {
-      pos: pos("garment.pos"),
-      nrm: unit("garment.nrm"),
-      idx: raw("garment.idx") as Uint32Array,
-      bind: raw("garment.bind") as Uint32Array,
-      kind: raw("garment.kind") as Uint8Array,
-      band: scaled("garment.band", 1, 255),
-    },
+    assets: (h.assets ?? []).map((a, k) => ({
+      ...a,
+      pos: pos(`a${k}.pos`),
+      nrm: unit(`a${k}.nrm`),
+      idx: raw(`a${k}.idx`) as Uint32Array,
+      uv: scaled(`a${k}.uv`, 1, 65535),
+      bind: raw(`a${k}.bind`) as Uint32Array,
+    })),
     skin: {
       pos: pos("skin.pos"),
       nrm: unit("skin.nrm"),
@@ -223,6 +235,10 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
       cloth: raw("skin.cloth") as Uint8Array,
       clothW: scaled("skin.clothW", 1, 255),
       tint: scaled("skin.tint", 1, 255),
+      uv: has("skin.uv") ? scaled("skin.uv", 1, 65535) : null,
+      renderIdx: (has("skin.uvIdx") ? raw("skin.uvIdx") : raw("skin.idx")) as Uint32Array,
+      dup: has("skin.dup") ? (raw("skin.dup") as Uint32Array) : new Uint32Array(0),
+      tone: has("skin.tone") ? scaled("skin.tone", 2, 255) : null,
     },
   };
 }

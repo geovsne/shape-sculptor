@@ -7,6 +7,7 @@ Coordinates are converted to three.js convention: Y up, +Z forward, meters,
 feet at y=0, centred on x=0.
 """
 import gzip
+import os
 import json
 import sys
 
@@ -233,7 +234,7 @@ _eye = {}
 for i, m in enumerate(meta):
     if m["kind"] == "eye" and m["part"] in ("sclera", "iris"):
         _eye[(m["side"], m["part"])] = (to_three(z[f"v{i}"]), z[f"t{i}"])
-    elif m["kind"] == "hair" and m["part"] in ("Hairs of eyebrow", "Eyelashes"):
+    elif m["kind"] == "hair" and m["part"] in ("Eyelashes",):
         v = to_three(z[f"v{i}"]); t = z[f"t{i}"]
         hv.append(v); ht.append(t + ho); ho += len(v)
 # paint iris and pupil onto the eyeball itself: kind = angle from the gaze axis / iris angle
@@ -352,6 +353,7 @@ if WARP:
     _kd = cKDTree(SV)
     _, _ni = _kd.query(MV, k=6); armM = armW[_ni].mean(1)
     _, _ni = _kd.query(BV, k=6); armB = armW[_ni].mean(1)
+    _side_pre = np.sign(SV[:, 0])
     SV, MV, BV, (EV, HV) = warp_body(SV, _sm, MV, BV, armW, armM, armB, axes, wz, (EV, HV))
     MN = trimesh.Trimesh(MV, MT, process=False).vertex_normals
     BN = trimesh.Trimesh(BV, BT, process=False).vertex_normals
@@ -363,6 +365,23 @@ if WARP:
         for _c in range(3):
             _x[_I, _c] = spsolve(_LII, -(_LIB @ _x[_B, _c]))
     SV = _x
+    # wider hips can push the inner thighs through each other: keep each leg on its side
+    _legs = ~_gen & (SV[:, 1] < SV[_gen, 1].max() + 0.02) & (np.abs(SV[:, 0]) < 0.08)
+    _sx = _side_pre * SV[:, 0]
+    _fix = _legs & (_sx < 0.006)
+    SV[_fix, 0] = _side_pre[_fix] * (0.006 + 0.3 * np.maximum(_sx[_fix], -0.02) * 0)
+    print("thigh crossing fixed", _fix.sum())
+    # smooth the groin and inner thighs: no genital relief, no creases, legs just touching
+    _cr = SV[_gen, 1].min()
+    _gz = np.clip(1 - np.abs(SV[:, 0]) / 0.1, 0, 1) * np.clip(1 - np.abs(SV[:, 1] - (_cr + 0.02)) / 0.12, 0, 1)
+    _gz = np.clip(_gz * 2.2, 0, 1)[:, None]
+    _A = smoother(trimesh.Trimesh(SV, sub_t, process=False))
+    for _ in range(4):
+        SV = SV * (1 - _gz) + _A(SV, 10) * _gz
+        _sx = _side_pre * SV[:, 0]
+        _fx = _legs & (_sx < 0.005)
+        SV[_fx, 0] = _side_pre[_fx] * 0.005
+    print("groin smoothed", int((_gz[:, 0] > 0.05).sum()))
     skin = trimesh.Trimesh(SV, sub_t, process=False)
 ST = skin.faces
 SN = skin.vertex_normals
@@ -385,6 +404,14 @@ shortsF = np.minimum(band(_y, _hem, _rise), _noarm)
 # stop at the inseam there, so leave that part out
 _gm = _gen & (np.abs(SV[:, 0]) < 0.01)
 _perineum = crotch + 0.55 * (np.median(_y[_gm]) - crotch) if _gm.any() else crotch + 0.04
+# drop the membrane that hangs between the legs below the leg split (it would show as a
+# flap of skin under the shorts); the gap left there is hidden between the thighs
+_web_v = _gen & (_y < _perineum + 0.012)
+_fc = SV[ST].mean(1)
+_keep = ~_web_v[ST].all(1)
+print("groin web faces removed", (~_keep).sum())
+ST = ST[_keep]
+skin = trimesh.Trimesh(SV, ST, process=False)
 
 shorts_v = shortsF > 0
 top_v = np.zeros(len(SV), bool)
@@ -529,84 +556,182 @@ bindStrength = sm(hitMuscle.astype(float), 2)
 bindW = bindW * bindStrength[:, None]
 fiberS = MF[idx[:, 0]] * (bindStrength[:, None] > 0.05)
 
-# ---------------------------------------------------------------- clothes and hair meshes
-from garments import garment, hair_shell, strand_dirs, tube  # noqa: E402
+# ---------------------------------------------------------------- MakeHuman assets
+from mh_assets import Mapper, fit_proxy, load_base, skin_uv  # noqa: E402
+from mh_assets import nearest as _nearest  # noqa: E402
 
+ASSETS = os.environ.get("MH_ASSETS", os.path.join(os.path.dirname(__file__), "..", "assets"))
+MH_DIR = os.environ.get("MH_DIR", os.path.join(os.path.dirname(__file__), "..", "anat/mh/makehuman/data"))
 SN = trimesh.Trimesh(SV, ST, process=False).vertex_normals
-G_V, G_T, G_B, G_K, G_BAND = [], [], [], [], []
+def _subdivide_uv(P, F, UV):
+    """midpoint subdivision carrying uv, then a light smoothing of the new surface"""
+    e = np.sort(np.r_[F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]], axis=1)
+    ue, inv = np.unique(e, axis=0, return_inverse=True)
+    mid = len(P) + np.arange(len(ue))
+    P2 = np.r_[P, 0.5 * (P[ue[:, 0]] + P[ue[:, 1]])]
+    UV2 = np.r_[UV, 0.5 * (UV[ue[:, 0]] + UV[ue[:, 1]])]
+    m = mid[inv].reshape(3, -1).T  # midpoints of edges 01, 12, 20
+    a, b, c = F[:, 0], F[:, 1], F[:, 2]
+    F2 = np.r_[np.c_[a, m[:, 0], m[:, 2]], np.c_[m[:, 0], b, m[:, 1]], np.c_[m[:, 2], m[:, 1], c], m]
+    # smooth on the welded surface (uv seams split vertices) so no cracks open
+    _, first, inv2 = np.unique(np.round(P2, 6), axis=0, return_index=True, return_inverse=True)
+    inv2 = inv2.ravel()
+    Pw = taubin(trimesh.Trimesh(P2[first], inv2[F2], process=False), 2)
+    return Pw[inv2], F2, UV2
 
 
-_skin_mesh = trimesh.Trimesh(SV, ST, process=False)
+ASSET_LIST = []
+SKIN_UV, ST_UV, DUP = np.zeros((len(SV), 2)), ST.copy(), np.zeros(0, np.int64)
+GV = SV[:1]
+if WARP:  # the base (unwarped) build only feeds the warp step
+    _w = np.load(WARP)
+    mapper = Mapper(_w["Ffull"], _w["body"], _w["arm"], SV, ST, armMask)
+    _VT, _BF, _BFT = load_base(f"{MH_DIR}/3dobjs/base.obj")
+    SKIN_UV, ST_UV, DUP = skin_uv(mapper, _VT, _BF, _BFT, SV, ST)
+    print("skin uv: seam copies", len(DUP))
 
+    PIECES = {
+        "f": [
+            ("top", "cloth", "underwear02_cc0/clothes/punkduck_sport_bra/punkduck_sport_bra.mhclo", "#eeedea", "punkduck (CC BY)"),
+            ("shorts", "cloth", "pants03_ccby/clothes/mindfront_male_swimming_trunks_01/mindfront_male_swimming_trunks_01.mhclo", "#4c525b", "Mindfront (CC BY)"),
+            ("hair", "hair", "hair01_cc0/hair/rehmanpolanski_hair_bun_brown/rehmanpolanski_hair_bun_brown.mhclo", None, "RehmanPolanski (CC0)"),
+            ("brows", "brow", "eyebrows01_cc0/eyebrows/mindfront_eyebrows_05/mindfront_eyebrows_05.mhclo", "#2a1a12", "Mindfront (CC0)"),
+        ],
+        "m": [
+            ("shorts", "cloth", "pants03_ccby/clothes/mindfront_male_swimming_trunks_01/mindfront_male_swimming_trunks_01.mhclo", "#4c525b", "Mindfront (CC BY)"),
+            ("hair", "hair", "hair01_cc0/hair/culturalibre_hair_02/culturalibre_hair_02.mhclo", None, "culturalibre (CC0)"),
+            ("brows", "brow", "eyebrows01_cc0/eyebrows/mindfront_eyebrows_03/mindfront_eyebrows_03.mhclo", "#1e140e", "Mindfront (CC0)"),
+        ],
+    }
+    ASSET_LIST = []
+    _kds = cKDTree(SV)
+    for name, kind, rel, color, credit in PIECES[SEX]:
+        P, F, UV, tex, mat = fit_proxy(os.path.join(ASSETS, rel), _w["Ffull"])
+        if kind == "cloth":  # MakeHuman clothes are low-poly: smooth them so they follow the body
+            for _ in range(2):
+                P, F, UV = _subdivide_uv(P, F, UV)
+        P = mapper.carry(P)
+        if SEX == "f" and name == "shorts":
+            # same trunks as the man, cut shorter: hem 5 cm below the crotch
+            _keepf = ~(P[F, 1] < _perineum - 0.045).any(1)
+            print("shorts faces cut", (~_keepf).sum())
+            F = F[_keepf]
+        bind = _kds.query(P)[1]
+        ASSET_LIST.append(dict(name=name, kind=kind, P=P, F=F, UV=UV, tex=tex, color=color, credit=credit, bind=bind))
+        print("asset", name, len(P), "verts", len(F), "tris", tex and os.path.basename(tex))
+    # skin under clothes goes at least 4 mm below the fabric (nipples, groin, creases), so
+    # the fabric stays smooth and nothing pokes through
+    _cl = [a for a in ASSET_LIST if a["kind"] == "cloth"]
+    if _cl:
+        _off = np.cumsum([0] + [len(a["P"]) for a in _cl])
+        _cm = trimesh.Trimesh(np.concatenate([a["P"] for a in _cl]),
+                              np.concatenate([a["F"] + _off[k] for k, a in enumerate(_cl)]), process=False)
+        _sm_s = smoother(trimesh.Trimesh(SV, ST, process=False))
+        _depth = np.zeros(len(SV))
+        _covered = np.zeros(len(SV), bool)
+        for _sgn in (1, -1):  # skin inside or outside the cloth
+            _loc, _ri, _ = _cm.ray.intersects_location(SV - _sgn * SN * 0.03, _sgn * SN, multiple_hits=False)
+            _d = ((_loc - SV[_ri]) * SN[_ri]).sum(1)  # cloth height above skin (<0: skin outside)
+            _ok = (np.abs(_d) < 0.03) & ~armMask[_ri]
+            _need = np.maximum(0.005 - _d[_ok], 0)
+            _depth[_ri[_ok]] = np.maximum(_depth[_ri[_ok]], _need)
+            _covered[_ri[_ok]] = True
+        # the crotch of the shorts is open at the inseam: sink the skin there well inside, so
+        # through the opening one sees the inside of the shorts, never skin
+        _cz = np.clip(1 - np.abs(SV[:, 0]) / 0.06, 0, 1) * ((SV[:, 1] > _perineum - 0.03) & (SV[:, 1] < _perineum + 0.09))
+        _depth = np.maximum(_depth, 0.02 * _cz)
+        _depth = np.maximum(_depth, _sm_s(_depth, 4))
+        _depth[armMask] = 0
+        SV = SV - SN * _depth[:, None]
+        # groin skin the shorts don't cover would show between the thighs: drop it
+        _bare = _gen & ~_covered
+        _drop = np.zeros(len(ST), bool)  # (smoothing below makes cutting unnecessary)
+        ST = ST[~_drop]; ST_UV = ST_UV[~_drop]
+        print("uncovered groin faces removed", _drop.sum())
+        print("skin under clothes moved", (_depth > 0).sum(), "max mm", round(_depth.max() * 1000, 1))
+    # hair and brows sit just above the skin
+    for A_ in ASSET_LIST:
+        if A_["kind"] == "cloth":
+            continue
+        q, tri = _nearest(mapper.skin, A_["P"])
+        nrm = mapper.skin.face_normals[tri]
+        d = ((A_["P"] - q) * nrm).sum(1)
+        gap = {"hair": 0.0012, "brow": 0.0006}[A_["kind"]]
+        A_["P"] = A_["P"] + nrm * np.maximum(gap - d, 0)[:, None]
+    GV = np.concatenate([a["P"] for a in ASSET_LIST])
 
-def _add_garment(mask, kind, thick, iters, bands, soften=0, crotch_zone=None):
-    V, F, b, bd = garment(SV, ST, SN, mask, thick, iters, bands, _skin_mesh, soften, crotch_zone)
-    off = sum(len(x) for x in G_V)
-    G_V.append(V); G_T.append(F + off); G_B.append(b); G_K.append(np.full(len(V), kind)); G_BAND.append(bd)
-    print("garment", kind, len(V), "verts", len(F), "tris")
+    # textures for the web: skin 2048 jpg, clothes greyscale jpg (tinted in the shader), hair png
+    from PIL import Image  # noqa: E402
 
+    os.makedirs(f"{OUT}/tex", exist_ok=True)
+    _skin_png = {"f": "skins01_cc0/skins/toigo_light_skin_female_bronze/young_lightskinned_female_diffuse_Bronze.png",
+                 "m": "skins02_cc0/skins/toigo_light_skin_male_bronze/young_lightskinned_male_diffuse_Bronze.png"}[SEX]
+    _simg = Image.open(os.path.join(ASSETS, _skin_png)).convert("RGB")
+    # the face painted in the texture (lips, eye shadow, brows) belongs to the MakeHuman face,
+    # not ours: replace the head island by plain skin of the neck's tone, keeping the pores
+    from PIL import ImageDraw, ImageFilter  # noqa: E402
 
-def _shorts_bands(ymean, loop):
-    if ymean > navel - 0.12:  # waistband
-        return 0.035, 1.0, 0.0016
-    return 0.016, 0.5, 0.0008  # leg hems
+    _W, _H = _simg.size
+    _Hb = SV[:, 1].max()
+    _cy = mapper.mapped[mapper.loc[_BF]].mean(1)[:, 1] if hasattr(mapper, "loc") else mapper.mapped[_BF].mean(1)[:, 1]
 
+    def _uvmask(sel):
+        m = Image.new("L", (_W, _H), 0)
+        dr = ImageDraw.Draw(m)
+        for t in np.where(sel)[0]:
+            uv = _VT[_BFT[t]]
+            dr.polygon([(u * _W, (1 - v) * _H) for u, v in uv], fill=255)
+        return m
 
-_add_garment(shortsF > 0, 0, 0.0045, 220, _shorts_bands, 4, (_perineum, 0.06))
-if SEX == "f":
-    _lowest = [None]
+    _head = _uvmask(_cy > 0.865 * _Hb).filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(12))
+    _neck = np.asarray(_uvmask((_cy > 0.80 * _Hb) & (_cy < 0.845 * _Hb))) > 128
+    _arr = np.asarray(_simg).astype(float)
+    _base = np.median(np.asarray(_simg.filter(ImageFilter.GaussianBlur(6))).astype(float)[_neck], axis=0)
+    _pores = _arr - np.asarray(_simg.filter(ImageFilter.GaussianBlur(3))).astype(float)
+    _plain = np.clip(_base[None, None] + _pores * 0.9, 0, 255)
+    _m = (np.asarray(_head).astype(float) / 255)[..., None]
+    _arr = _arr * (1 - _m) + _plain * _m
+    # same for the groin (painted genitals/pubic hair would show on the inner thighs)
+    _cen = mapper.mapped[mapper.loc[_BF]].mean(1)
+    _gr = (np.abs(_cen[:, 0]) < 0.075) & (_cen[:, 1] > crotch - 0.07) & (_cen[:, 1] < crotch + 0.13)
+    _grm = _uvmask(_gr).filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(12))
+    _thigh = np.asarray(_uvmask((np.abs(_cen[:, 0]) > 0.06) & (_cen[:, 1] > crotch - 0.25) & (_cen[:, 1] < crotch - 0.12))) > 128
+    _tb = np.median(np.asarray(_simg.filter(ImageFilter.GaussianBlur(6))).astype(float)[_thigh], axis=0)
+    _m2 = (np.asarray(_grm).astype(float) / 255)[..., None]
+    _arr = _arr * (1 - _m2) + np.clip(_tb[None, None] + _pores * 0.9, 0, 255) * _m2
+    _simg = Image.fromarray(_arr.astype(np.uint8))
+    _simg.save(f"{OUT}/tex/{SEX}-skin.jpg", quality=86)
+    # tone equalisation: divide out the texture's low-frequency colour so painted regions
+    # that land a bit off on our body (and uv seams) blend; fine detail stays
+    from PIL import ImageFilter  # noqa: E402
+    _blur = np.asarray(_simg.resize((512, 512)).filter(ImageFilter.GaussianBlur(10))).astype(float)
+    _uvN = SKIN_UV[: len(SV)]
+    _px = np.clip((_uvN[:, 0] * 511).astype(int), 0, 511)
+    _py = np.clip(((1 - _uvN[:, 1]) * 511).astype(int), 0, 511)
+    _tone = _blur[_py, _px]
+    _ref = np.median(_tone[(np.abs(SV[:, 0]) < 0.12) & (SV[:, 1] > 0.9) & (SV[:, 1] < 1.3)], axis=0)
+    SKIN_TONE = np.clip(_ref[None] / np.maximum(_tone, 1), 0.7, 1.45)
+    SKIN_TONE = smoother(trimesh.Trimesh(SV, ST, process=False))(SKIN_TONE, 4)
+    for A_ in ASSET_LIST:
+        if not A_["tex"]:
+            continue
+        im = Image.open(A_["tex"])
+        im.thumbnail((1024, 1024))
+        if A_["kind"] == "cloth":
+            g = im.convert("L")
+            # normalise brightness so the tint colour decides the final colour
+            arr = np.asarray(g).astype(float)
+            arr = np.clip(arr / max(1, np.percentile(arr, 90)) * 235, 0, 255).astype(np.uint8)
+            Image.fromarray(arr).convert("RGB").save(f"{OUT}/tex/{SEX}-{A_['name']}.jpg", quality=85)
+        else:
+            im.convert("RGBA").save(f"{OUT}/tex/{SEX}-{A_['name']}.png", optimize=True)
 
-    def _top_bands(ymean, loop):
-        if ymean < bra_under + 0.03:  # elastic under-band
-            return 0.024, 1.0, 0.001
-        return 0.006, 0.5, 0.0004  # neckline, arm holes, strap edges
-
-    _add_garment(topF > 0, 1, 0.0035, 80, _top_bands, 12)
-GV = np.concatenate(G_V); GT = np.concatenate(G_T); GB = np.concatenate(G_B)
-GK = np.concatenate(G_K); GBAND = np.concatenate(G_BAND)
-
-# hair: brows/lashes (kind 0) follow the nearest skin point; hair mass (1); hair tie (2)
-_kd_s = cKDTree(SV)
-HB = _kd_s.query(HV)[1]
-HK = np.zeros(len(HV)); HD = np.tile([0.0, 0.0, 1.0], (len(HV), 1))
-_cap = capF > 0
-_sv, _sf, _su = hair_shell(SV, ST, SN, _cap, 0.007 if SEX == "m" else 0.009)
-_sn = trimesh.Trimesh(_sv, _sf, process=False).vertex_normals
-if SEX == "f":
-    P0 = SV[occ_i] + np.array([0, 0.012, -0.012])
-    _dir = strand_dirs(_sv, _sn, target=P0)
-else:
-    _dir = strand_dirs(_sv, _sn, along=np.array([0.0, 0.3, -1.0]))
-HT = np.r_[HT, _sf + len(HV)]; HV = np.r_[HV, _sv]; HB = np.r_[HB, _su]
-HK = np.r_[HK, np.ones(len(_sv))]; HD = np.r_[HD, _dir]
-if SEX == "f":
-    # ponytail hanging from the back of the head, kept off the neck and back
-    tt_ = np.linspace(0, 1, 48)[:, None]
-    C = [P0, P0 + [0, 0.0, -0.07], P0 + [0, -0.12, -0.075], P0 + [0, -0.27, -0.035]]
-    path = ((1 - tt_) ** 3) * C[0] + 3 * ((1 - tt_) ** 2) * tt_ * C[1] + 3 * (1 - tt_) * tt_ ** 2 * C[2] + tt_ ** 3 * C[3]
-    s_ = tt_[:, 0]
-    rad = np.where(s_ < 0.55, 0.019 + 0.017 * np.sin(np.pi * np.clip((s_ - 0.04) / 0.62, 0, 1)), 0)
-    rad = np.where(s_ >= 0.55, (0.019 + 0.017 * np.sin(np.pi * 0.82)) * (1 - (s_ - 0.55) / 0.45) + 0.004, rad)
-    _back = (np.abs(SV[:, 0]) < 0.04)
-    for i, pt in enumerate(path):
-        near = _back & (np.abs(SV[:, 1] - pt[1]) < 0.012)
-        if near.any():
-            zb = SV[near, 2].min()
-            path[i, 2] = min(pt[2], zb - rad[i] - 0.006)
-    pv, pf, pd = tube(path, rad, 22)
-    HT = np.r_[HT, pf + len(HV)]; HV = np.r_[HV, pv]; HB = np.r_[HB, np.full(len(pv), occ_i)]
-    HK = np.r_[HK, np.ones(len(pv))]; HD = np.r_[HD, np.array(pd)]
-    k0, k1 = 1, 4  # hair tie just after the base
-    tv, tf, td = tube(path[k0:k1 + 1], np.full(k1 - k0 + 1, 0.0225), 22)
-    HT = np.r_[HT, tf + len(HV)]; HV = np.r_[HV, tv]; HB = np.r_[HB, np.full(len(tv), occ_i)]
-    HK = np.r_[HK, np.full(len(tv), 2)]; HD = np.r_[HD, np.array(td)]
-print("hair verts", len(HV))
 
 # ---------------------------------------------------------------- pack
 ground = min(SV[:, 1].min(), MV[:, 1].min(), BV[:, 1].min())
 cx = 0.0
 lo = np.minimum.reduce([X.min(0) for X in (SV, MV, BV, EV, HV, GV)]); hi = np.maximum.reduce([X.max(0) for X in (SV, MV, BV, EV, HV, GV)])
-for arr in (SV, MV, BV, EV, HV, GV):
+for arr in [SV, MV, BV, EV, HV] + [A_["P"] for A_ in ASSET_LIST]:
     arr[:, 1] -= ground
 lo[1] -= ground; hi[1] -= ground
 scale = (hi - lo)
@@ -657,15 +782,25 @@ put("eye.pos", qpos(EV)); put("eye.nrm", qn(EN)); put("eye.idx", ET.astype(np.ui
 put("eye.kind", np.round(EK / 2 * 255).astype(np.uint8))  # 0..2 = angle / iris angle
 HN = trimesh.Trimesh(HV, HT, process=False).vertex_normals
 put("hair.pos", qpos(HV)); put("hair.nrm", qn(HN)); put("hair.idx", HT.astype(np.uint32))
-put("hair.bind", HB.astype(np.uint32)); put("hair.kind", HK.astype(np.uint8)); put("hair.dir", qn(HD + 1e-9))
-GN = trimesh.Trimesh(GV, GT, process=False).vertex_normals
-put("garment.pos", qpos(GV)); put("garment.nrm", qn(GN)); put("garment.idx", GT.astype(np.uint32))
-put("garment.bind", GB.astype(np.uint32)); put("garment.kind", GK.astype(np.uint8))
-put("garment.band", np.round(np.clip(GBAND, 0, 1) * 255).astype(np.uint8))
+put("hair.bind", cKDTree(SV).query(HV)[1].astype(np.uint32))
+asset_meta = []
+for k, A_ in enumerate(ASSET_LIST):
+    AN = trimesh.Trimesh(A_["P"], A_["F"], process=False).vertex_normals
+    put(f"a{k}.pos", qpos(A_["P"])); put(f"a{k}.nrm", qn(AN)); put(f"a{k}.idx", A_["F"].astype(np.uint32))
+    put(f"a{k}.uv", np.round(np.clip(A_["UV"], 0, 1) * 65535).astype(np.uint16))
+    put(f"a{k}.bind", A_["bind"].astype(np.uint32))
+    asset_meta.append(dict(name=A_["name"], kind=A_["kind"], tex=f"tex/{SEX}-{A_['name']}" + (".png" if A_["kind"] != "cloth" else ".jpg") if A_["tex"] else None,
+                           color=A_["color"], credit=A_["credit"]))
+put("skin.uv", np.round(SKIN_UV * 65535).astype(np.uint16))
+put("skin.uvIdx", ST_UV.astype(np.uint32))
+put("skin.dup", DUP.astype(np.uint32))
+if WARP:
+    put("skin.tone", np.round(np.clip(SKIN_TONE / 2, 0, 1) * 255).astype(np.uint8))
 
 header = dict(version=1, sex=SEX, lo=lo.tolist(), scale=scale.tolist(), height=float(hi[1] - lo[1]),
               groups=GROUPS, heads=HEADS, fatRegions=FAT_REGIONS, parts=parts, sections=sections,
-              ampMax=0.06, depthMax=0.08, bindK=K, restBf=12 if SEX == "m" else 24)
+              ampMax=0.06, depthMax=0.08, bindK=K, restBf=12 if SEX == "m" else 24,
+              assets=asset_meta, skinTex=f"tex/{SEX}-skin.jpg")
 open(f"{OUT}/body-{SEX}.json", "w").write(json.dumps(header, ensure_ascii=False))
 open(f"{OUT}/body-{SEX}.dat", "wb").write(gzip.compress(bytes(blob), 9))
 print("bytes", len(blob), "gz", len(gzip.compress(bytes(blob), 9)), "height", header["height"])

@@ -62,10 +62,12 @@ def prepare(mh_dir, za_skin_pos, out, sex="f"):
               + 0.4 * T("mouth/mouth-cupidsbow-incr")
               + 0.4 * T("eyebrows/eyebrows-trans-up") + 0.2 * T("eyebrows/eyebrows-angle-up")
               + 0.4 * T("cheek/l-cheek-bones-incr") + 0.4 * T("cheek/r-cheek-bones-incr")
-              + 0.4 * T("neck/neck-scale-horiz-decr"))[body]
+              + 0.4 * T("neck/neck-scale-horiz-decr"))
     else:
         # same man with "ideal" (classical) proportions
-        Fm = (male + 1.0 * T("macrodetails/proportions/male-young-averagemuscle-averageweight-idealproportions"))[body]
+        Fm = (male + 1.0 * T("macrodetails/proportions/male-young-averagemuscle-averageweight-idealproportions"))
+    Ffull = Fm.copy()
+    Fm = Fm[body]
     # MakeHuman: decimetres, Y up, +Z forward  (same axes as three.js)
     za = za_skin_pos
     s = (za[:, 1].max() - za[:, 1].min()) / (M[:, 1].max() - M[:, 1].min())
@@ -78,12 +80,13 @@ def prepare(mh_dir, za_skin_pos, out, sex="f"):
     shift[2] = za[band_za, 2].mean() - M[band_mh, 2].mean()
     M = M + shift
     Fm = Fm + shift
+    Ffull = Ffull * s + shift  # every base-mesh vertex (helpers too): for clothes and hair
     H = za[:, 1].max()
     # arm vertices of the MakeHuman model (A pose): lateral and below the shoulder
     arm = (np.abs(M[:, 0]) > 0.205 * H / 1.71) & (M[:, 1] < 0.83 * H)
     disp = Fm - M
     breast = (M[:, 1] > 0.68 * H) & (M[:, 1] < 0.8 * H) & (M[:, 2] > 0.0) & (disp[:, 2] > 0.006) & ~arm
-    np.savez(out, M=M, F=Fm, arm=arm, breast=breast, H=H,
+    np.savez(out, M=M, F=Fm, Ffull=Ffull, body=body, arm=arm, breast=breast, H=H,
              ratio=0.92 if sex == "f" else 1.0, radial=0.86 if sex == "f" else 1.0)
     print("mh aligned", M.min(0).round(3), M.max(0).round(3), "arm", arm.sum(), "breast", breast.sum())
 
