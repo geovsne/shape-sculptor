@@ -11,9 +11,9 @@ import {
   type Profile,
 } from "@/lib/training";
 import {
-  BASAL_KCAL,
   PRESETS,
   advanceWeek,
+  tdee,
   analyzePlan,
   initSim,
   injuredMuscles,
@@ -85,7 +85,7 @@ export function Studio() {
   };
   const createAvatar = () => {
     setSim(initSim(profile));
-    setNutrition({ kcal: Math.round((BASAL_KCAL[profile.sex] * 1.3) / 50) * 50, protein: 1.8 });
+    setNutrition({ kcal: Math.round(tdee(profile, plan) / 50) * 50 + 300, protein: 1.8 });
   };
 
   return (

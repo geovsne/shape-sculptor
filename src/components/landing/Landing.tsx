@@ -145,7 +145,7 @@ const COMPARE: [string, string, string][] = [
   ["Carga", "Por intensidade", "Em kg, com 1RM estimado"],
   ["Alertas de volume e overtraining", "Sim", "Sim"],
   ["Lesões musculares e de tendão", "Sim", "Sim, também por excesso de carga"],
-  ["Alimentação", "Basal: 2.000 kcal (homem), 1.700 kcal (mulher)", "Calorias e proteína livres"],
+  ["Alimentação", "Manutenção: come o que gasta", "Calorias e proteína livres"],
   ["Hormônios", "Não", "Reposição ou acima do fisiológico, com colaterais"],
 ];
 

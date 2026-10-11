@@ -28,11 +28,11 @@ describe("simulação", () => {
     expect(a.profile).toEqual(b.profile);
   });
 
-  it("sem PRO ignora dieta e hormônio e usa a alimentação basal", () => {
+  it("sem PRO ignora dieta e hormônio e come em manutenção", () => {
     const s = run(PRESETS["ppl"]!.plan(), free, 4);
-    expect(s.last!.kcal).toBe(2000);
+    expect(s.last!.kcal).toBe(s.last!.tdee);
     expect(s.hormone.level).toBe("nenhum");
-    expect(s.profile.bf).toBeLessThan(man.bf);
+    expect(Math.abs(s.profile.weight - man.weight)).toBeLessThan(1.5);
   });
 
   it("superávit com bom treino ganha músculo; sem treino só ganha gordura", () => {

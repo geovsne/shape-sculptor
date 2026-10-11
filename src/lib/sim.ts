@@ -142,8 +142,8 @@ export const HORMONE_LEVELS: Record<HormoneLevel, { label: string; desc: string 
 export type Nutrition = { kcal: number; protein: number /* g per kg of body weight */ };
 export type Options = { pro: boolean; nutrition: Nutrition; hormone: HormoneLevel };
 
-export const BASAL_KCAL: Record<Sex, number> = { m: 2000, f: 1700 };
-export const BASAL_PROTEIN = 1.2;
+/** Free plan eats at maintenance: calories match the estimated daily expenditure. */
+export const BASAL_PROTEIN = 1.6;
 
 const HFX: Record<
   HormoneLevel,
@@ -501,8 +501,8 @@ export function tdee(profile: Profile, plan: Plan): number {
   return Math.round(bmr * 1.35 + (sets * 7) / 7);
 }
 
-export const nutritionFor = (s: SimState, o: Options): Nutrition =>
-  o.pro ? o.nutrition : { kcal: BASAL_KCAL[s.profile.sex], protein: BASAL_PROTEIN };
+export const nutritionFor = (s: SimState, o: Options, plan: Plan): Nutrition =>
+  o.pro ? o.nutrition : { kcal: tdee(s.profile, plan), protein: BASAL_PROTEIN };
 
 const energyMul = (r: number) => (r >= 1.05 ? 1.15 : r >= 0.95 ? 1 : r >= 0.8 ? 0.75 : 0.45);
 
@@ -637,13 +637,13 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
       text: `Carga total da semana (${Math.round(systemic)}) acima da capacidade de recuperação (${cap}).`,
     });
 
-  const n = nutritionFor(s, o);
+  const n = nutritionFor(s, o, plan);
   const spend = tdee(s.profile, plan);
   const r = n.kcal / spend;
   if (!o.pro)
     alerts.push({
       level: "info",
-      text: `Alimentação basal: ${n.kcal} kcal para um gasto estimado de ${spend} kcal (${n.kcal >= spend ? "superávit" : "déficit"} de ${Math.abs(n.kcal - spend)} kcal/dia). Edite a dieta no PRO.`,
+      text: `Alimentação de manutenção: ${n.kcal} kcal por dia, igual ao gasto estimado. Peso estável; para ganhar ou secar, edite a dieta no PRO.`,
     });
   else {
     if (r < 0.8)
@@ -689,7 +689,7 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
 }
 
 function recoveryMul(s: SimState, o: Options, restDays: number, plan: Plan) {
-  const n = nutritionFor(s, o);
+  const n = nutritionFor(s, o, plan);
   const h = HFX[o.pro ? o.hormone : "nenhum"];
   const r = n.kcal / tdee(s.profile, plan);
   return (
@@ -735,7 +735,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
   const post = postWeeks > 0 && level === "nenhum";
 
   /* energy and recovery */
-  const n = nutritionFor(s, o);
+  const n = nutritionFor(s, o, plan);
   const spend = tdee(s.profile, plan);
   const r = n.kcal / spend;
   const eMul = energyMul(r);

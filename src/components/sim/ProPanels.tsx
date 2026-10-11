@@ -1,5 +1,4 @@
 import {
-  BASAL_KCAL,
   BASAL_PROTEIN,
   HORMONE_LEVELS,
   tdee,
@@ -51,23 +50,21 @@ export function DietPanel({
 }) {
   const spend = tdee(sim.profile, plan);
   if (!pro) {
-    const basal = BASAL_KCAL[sim.profile.sex];
     return (
       <div className="space-y-3">
         <div className="rounded-2xl bg-secondary p-4">
           <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Alimentação basal
+            Alimentação de manutenção
           </div>
-          <div className="mt-1 font-display text-3xl font-bold tabular-nums">{basal} kcal</div>
+          <div className="mt-1 font-display text-3xl font-bold tabular-nums">{spend} kcal</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Proteína {BASAL_PROTEIN} g/kg · gasto estimado {spend} kcal/dia ·{" "}
-            {basal >= spend ? `superávit de ${basal - spend}` : `déficit de ${spend - basal}`} kcal
+            Igual ao gasto estimado do avatar · proteína {BASAL_PROTEIN} g/kg
           </div>
         </div>
         <Locked title="Dieta personalizada" onUnlock={onUnlock}>
-          No grátis o avatar come sempre {basal} kcal. No PRO você define calorias e proteína: com
-          superávit e bom treino ele ganha músculo (e um pouco de gordura); com déficit ele seca;
-          com treino pesado e dieta ruim ele perde músculo.
+          No grátis o avatar come exatamente o que gasta, e a mudança vem só do treino. No PRO você
+          define calorias e proteína: com superávit e bom treino ele ganha músculo (e um pouco de
+          gordura); com déficit ele seca; com treino pesado e dieta ruim ele perde músculo.
         </Locked>
       </div>
     );
