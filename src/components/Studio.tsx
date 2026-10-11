@@ -153,7 +153,15 @@ export function Studio() {
     [plan, preview, pro, nutrition, hormone],
   ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const headDev = preview.headDev;
+  // PRO "Antes / Agora": show the week-0 body of this avatar
+  const [showBefore, setShowBefore] = useState(false);
+  const before0 = useMemo(() => {
+    if (!sim) return null;
+    const h0 = sim.history[0]!;
+    return initSim({ ...sim.profile, weight: h0.weight, bf: h0.bf });
+  }, [sim]);
+  const shown = showBefore && pro && before0 ? before0 : preview;
+  const headDev = shown.headDev;
   const injured: Partial<Record<Muscle, number>> = {};
   const tendonInjured: Partial<Record<Muscle, number>> = {};
   for (const i of sim?.injuries ?? []) {
@@ -219,10 +227,10 @@ export function Studio() {
   return (
     <div className="relative min-h-screen w-full bg-background font-body text-foreground lg:h-screen lg:overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
-      <div className="relative h-[60vh] lg:absolute lg:inset-0 lg:h-auto">
+      <div className="sticky top-0 z-20 h-[50vh] bg-background lg:absolute lg:inset-0 lg:z-auto lg:h-auto lg:bg-transparent">
         <Viewer
           captureRef={captureRef}
-          profile={preview.profile}
+          profile={shown.profile}
           headDev={headDev}
           neutral={mode === "explore" ? "#d9b8ae" : "#b0675c"}
           skin={skin}
@@ -236,9 +244,61 @@ export function Studio() {
             setExId(null);
           }}
         />
+        {sim && mode === "sim" && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center px-3 lg:bottom-24">
+            <div className="glass pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-full p-1.5 pl-4">
+              <div className="min-w-0 flex-none text-left leading-tight">
+                <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {showBefore && pro ? "Antes" : `Semana ${sim.week}`}
+                </div>
+                <div className="text-[11px] font-semibold tabular-nums">
+                  {shown.profile.weight}kg · {shown.profile.bf}%
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBefore(false);
+                  simulate(1);
+                }}
+                className="flex-1 whitespace-nowrap rounded-full bg-primary px-3 py-3 font-display text-sm font-semibold text-primary-foreground shadow-[var(--shadow-primary)] transition-transform active:scale-[0.98]"
+              >
+                Treinar <span className="hidden sm:inline">semana </span>
+                {sim.week + 1}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBefore(false);
+                  simulate(4);
+                }}
+                className="rounded-full border bg-background/60 px-3 py-3 font-display text-xs font-semibold"
+              >
+                +4
+              </button>
+              {pro && sim.week > 0 && (
+                <button
+                  type="button"
+                  aria-pressed={showBefore}
+                  onClick={() => setShowBefore(!showBefore)}
+                  className={`rounded-full px-3 py-3 font-display text-xs font-semibold transition-all ${showBefore ? "bg-foreground text-background" : "border bg-background/60"}`}
+                >
+                  {showBefore ? "Agora" : "Antes"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setSkin(skin > 0.5 ? 0 : 1)}
+          className="glass absolute right-3 top-28 z-10 rounded-full px-3 py-1.5 text-[11px] font-semibold lg:hidden"
+        >
+          {skin > 0.5 ? "Ver músculos" : "Ver pele"}
+        </button>
       </div>
 
-      <header className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-8 lg:py-6">
+      <header className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-8 lg:py-6">
         <Link to="/" className="block">
           <div className="font-display text-2xl font-bold tracking-tight">
             MYO<span className="text-primary">/</span>LAB
@@ -457,23 +517,6 @@ export function Studio() {
                   />
                 )}
               </div>
-
-              <div className="mt-4 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => simulate(1)}
-                  className="flex-1 rounded-full bg-primary py-4 font-display font-semibold text-primary-foreground shadow-[var(--shadow-primary)] transition-transform hover:scale-[1.02]"
-                >
-                  Treinar semana {sim.week + 1} →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => simulate(4)}
-                  className="rounded-full border px-4 font-display text-sm font-semibold hover:bg-secondary"
-                >
-                  +4 sem.
-                </button>
-              </div>
             </div>
           )}
         </aside>
@@ -676,7 +719,7 @@ export function Studio() {
         </aside>
 
         {/* Skin toggle */}
-        <div className="glass flex items-center justify-center gap-4 rounded-full px-6 py-3 lg:absolute lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2">
+        <div className="glass hidden items-center justify-center gap-4 rounded-full px-6 py-3 lg:absolute lg:bottom-6 lg:left-1/2 lg:flex lg:-translate-x-1/2">
           <span className="text-xs font-semibold">Músculos</span>
           <input
             id="skin"
