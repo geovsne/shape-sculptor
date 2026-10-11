@@ -63,19 +63,27 @@ export function RoutineEditor({
     (m) => MUSCLES[m].name,
   );
 
+  const planKey = JSON.stringify(plan);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap gap-1">
-        {Object.entries(PRESETS).map(([k, p]) => (
-          <button
-            type="button"
-            key={k}
-            onClick={() => setPlan(() => p.plan())}
-            className="rounded-full border px-2.5 py-1 text-[10px] font-medium hover:bg-secondary"
-          >
-            {p.name}
-          </button>
-        ))}
+        {Object.entries(PRESETS).map(([k, p]) => {
+          // highlighted while the routine is exactly that preset (any edit clears it)
+          const on = JSON.stringify(p.plan()) === planKey;
+          return (
+            <button
+              type="button"
+              key={k}
+              aria-pressed={on}
+              onClick={() => setPlan(() => p.plan())}
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all ${on ? "border-foreground bg-foreground text-background" : "hover:bg-secondary"}`}
+            >
+              {on && "✓ "}
+              {p.name}
+            </button>
+          );
+        })}
         <button
           type="button"
           onClick={() => setPlan(() => emptyPlan())}
