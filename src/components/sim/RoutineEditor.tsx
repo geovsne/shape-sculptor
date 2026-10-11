@@ -111,6 +111,16 @@ export function RoutineEditor({
         </button>
       </div>
 
+      {!pro && (
+        <button
+          type="button"
+          onClick={onUnlock}
+          className="mt-2 text-left text-[10px] text-muted-foreground hover:text-foreground"
+        >
+          Pegada, ângulo do banco, amplitude e carga em kg:{" "}
+          <span className="font-semibold text-primary">PRO</span>
+        </button>
+      )}
       <div className="mt-4 grid grid-cols-7 gap-1">
         {DAYS.map((d, i) => {
           const n = (plan[i] ?? []).length;
@@ -201,55 +211,63 @@ export function RoutineEditor({
                   </button>
                 </div>
               </div>
-              {e.variants && (
-                <div className="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label="Pegada">
-                  {e.variants.map((v, vi) => {
-                    const on = ((pro && item.variant) || e.variants![0]?.id) === v.id;
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={on}
-                        title={!pro && vi > 0 ? "Variações de pegada são PRO" : undefined}
-                        onClick={() =>
-                          !pro && vi > 0
-                            ? onUnlock()
-                            : update(idx, { variant: vi === 0 ? undefined : v.id })
-                        }
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${on ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:text-foreground"}`}
-                      >
-                        {v.label}
-                        {!pro && vi > 0 && " 🔒"}
-                      </button>
-                    );
-                  })}
-                </div>
+              {pro && (
+                <>
+                  {e.variants && (
+                    <div
+                      className="mt-2 flex flex-wrap gap-1"
+                      role="radiogroup"
+                      aria-label="Pegada"
+                    >
+                      {e.variants.map((v, vi) => {
+                        const on = ((pro && item.variant) || e.variants![0]?.id) === v.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            title={!pro && vi > 0 ? "Variações de pegada são PRO" : undefined}
+                            onClick={() =>
+                              !pro && vi > 0
+                                ? onUnlock()
+                                : update(idx, { variant: vi === 0 ? undefined : v.id })
+                            }
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${on ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:text-foreground"}`}
+                          >
+                            {v.label}
+                            {!pro && vi > 0 && " 🔒"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {e.bench != null && (
+                    <ChipRow
+                      label="Banco"
+                      items={BENCH_ANGLES.map((a) => ({
+                        id: String(a),
+                        label: a === 0 ? "Reto" : `${a}°`,
+                        locked: !pro && a !== e.bench,
+                      }))}
+                      value={String(pro && item.angle != null ? item.angle : e.bench)}
+                      onPick={(id) => update(idx, { angle: +id === e.bench ? undefined : +id })}
+                      onLocked={onUnlock}
+                    />
+                  )}
+                  <ChipRow
+                    label="Amplitude"
+                    items={(Object.keys(ROMS) as Rom[]).map((k) => ({
+                      id: k,
+                      label: ROMS[k].label,
+                      locked: !pro && k !== "full",
+                    }))}
+                    value={pro && item.rom ? item.rom : "full"}
+                    onPick={(id) => update(idx, { rom: id === "full" ? undefined : (id as Rom) })}
+                    onLocked={onUnlock}
+                  />
+                </>
               )}
-              {e.bench != null && (
-                <ChipRow
-                  label="Banco"
-                  items={BENCH_ANGLES.map((a) => ({
-                    id: String(a),
-                    label: a === 0 ? "Reto" : `${a}°`,
-                    locked: !pro && a !== e.bench,
-                  }))}
-                  value={String(pro && item.angle != null ? item.angle : e.bench)}
-                  onPick={(id) => update(idx, { angle: +id === e.bench ? undefined : +id })}
-                  onLocked={onUnlock}
-                />
-              )}
-              <ChipRow
-                label="Amplitude"
-                items={(Object.keys(ROMS) as Rom[]).map((k) => ({
-                  id: k,
-                  label: ROMS[k].label,
-                  locked: !pro && k !== "full",
-                }))}
-                value={pro && item.rom ? item.rom : "full"}
-                onPick={(id) => update(idx, { rom: id === "full" ? undefined : (id as Rom) })}
-                onLocked={onUnlock}
-              />
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div className="flex items-center gap-1.5">
                   <Stepper
