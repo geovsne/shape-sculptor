@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
+import { createMuscleMaterial, TENDON_COLOR } from "../anatomy/muscleMaterial";
+import { buildMuscleDetail } from "./muscleDetail";
 import {
   CAT_COLOR,
   SIDE_LABEL,
@@ -33,15 +35,20 @@ function LayerMesh({
   ghost: boolean;
   onPick: (index: number | null, through: boolean) => void;
 }) {
+  const detail = useMemo(() => layer.system === "muscles" ? buildMuscleDetail(layer) : null, [layer]);
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(layer.pos, 3));
     g.setAttribute("normal", new THREE.BufferAttribute(layer.nrm, 3));
     g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(layer.pos.length), 3));
     g.setIndex(new THREE.BufferAttribute(layer.idx, 1));
+    if (detail) {
+      g.setAttribute("fiber", new THREE.BufferAttribute(detail.fiber, 3));
+      g.setAttribute("fiberMask", new THREE.BufferAttribute(detail.mask, 1));
+    }
     g.computeBoundingSphere();
     return g;
-  }, [layer]);
+  }, [layer, detail]);
   useEffect(() => () => geo.dispose(), [geo]);
 
   // colours: by kind, the picked part highlighted
@@ -52,10 +59,19 @@ function LayerMesh({
     layer.parts.forEach((p, k) => {
       c.set(CAT_COLOR[p.cat] ?? CAT_COLOR[layer.system] ?? "#cccccc");
       if (k === picked) c.copy(HIGHLIGHT);
-      for (let i = p.v0; i < p.v0 + p.nv; i++) c.toArray(arr, i * 3);
+      const base = c.clone();
+      for (let i = p.v0; i < p.v0 + p.nv; i++) {
+        c.copy(base);
+        if (detail) {
+          const end = detail.end[i] ?? 0;
+          if (/tendon|aponeurosis/i.test(p.base) && k !== picked) c.copy(TENDON_COLOR);
+          else c.lerp(TENDON_COLOR, Math.min(1, Math.max(0, (end - 0.82) / 0.16)) * 0.85);
+        }
+        c.toArray(arr, i * 3);
+      }
     });
     col.needsUpdate = true;
-  }, [geo, layer, picked]);
+  }, [geo, layer, picked, detail]);
 
   useEffect(() => {
     const p = isolate && picked != null ? layer.parts[picked] : null;
@@ -64,19 +80,23 @@ function LayerMesh({
   }, [geo, layer, picked, isolate]);
 
   const mat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
+    () => {
+      const material = layer.system === "muscles" ? createMuscleMaterial() : new THREE.MeshStandardMaterial({
         vertexColors: true,
         roughness: layer.system === "bones" ? 0.7 : 0.5,
         metalness: 0,
         transparent: true,
         side: THREE.DoubleSide,
-      }),
+      });
+      material.side = THREE.DoubleSide;
+      return material;
+    },
     [layer.system],
   );
   useEffect(() => {
     mat.opacity = ghost ? (layer.system === "skin" ? 0.18 : 0.28) : 1;
     mat.depthWrite = !ghost;
+    mat.transparent = ghost;
     mat.needsUpdate = true;
   }, [mat, ghost, layer.system]);
   useEffect(() => () => mat.dispose(), [mat]);
@@ -91,7 +111,7 @@ function LayerMesh({
         if (ghost) return onPick(null, true); // see-through layers let the tap pass
         e.stopPropagation();
         const f = e.face;
-        onPick(f ? layer.part[f.a]! : null, false);
+        onPick(f ? (layer.part[f.a] ?? null) : null, false);
       }}
     />
   );
@@ -153,10 +173,10 @@ export function Atlas() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
       <div className="sticky top-0 z-20 h-[58vh] bg-background lg:absolute lg:inset-0 lg:z-auto lg:h-auto lg:bg-transparent">
         <Canvas dpr={[1, SMALL ? 1.5 : 2]} camera={{ position: [0, 1.0, 3.6], fov: 32 }}>
-          <ambientLight intensity={0.7} />
-          <directionalLight position={[2, 4, 3]} intensity={1.5} />
-          <directionalLight position={[-3, 2, -2]} intensity={0.7} color="#cfe3ff" />
-          <Environment resolution={64}>
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[2, 4, 3]} intensity={1.6} />
+          <directionalLight position={[-3, 2, -2]} intensity={0.8} color="#cfe3ff" />
+          <Environment resolution={128}>
             <Lightformer
               intensity={2}
               position={[0, 5, 0]}
@@ -199,7 +219,7 @@ export function Atlas() {
         {part && (
           <div className="glass absolute inset-x-3 bottom-3 z-10 rounded-2xl p-3 lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:w-[420px] lg:-translate-x-1/2">
             <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              {SYSTEM_LABEL[pick!.system]}
+              {pick ? SYSTEM_LABEL[pick.system] : ""}
               {part.group ? ` · ${part.group}` : ""}
             </div>
             <div className="font-display text-lg font-semibold leading-tight">
@@ -287,6 +307,8 @@ export function Atlas() {
                           : CAT_COLOR[s],
                 }}
               />
+            <Lightformer intensity={1.2} color="#ffd9c4" position={[-5, 1, 1]} rotation-y={Math.PI / 2} scale={[20, 2, 1]} />
+            <Lightformer intensity={1} color="#d4e6ff" position={[5, 1, -1]} rotation-y={-Math.PI / 2} scale={[20, 2, 1]} />
               {SYSTEM_LABEL[s]}
             </button>
           ))}

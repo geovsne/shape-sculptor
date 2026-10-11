@@ -4,6 +4,7 @@ import * as THREE from "three";
 import type { Head, Muscle, Profile } from "@/lib/training";
 import { HEADS, HEAD_IDS } from "@/lib/training";
 import { REF_FMI } from "@/lib/sim";
+import { createMuscleMaterial, TENDON_COLOR, withFibers } from "./muscleMaterial";
 import {
   deform,
   leanness,
@@ -27,7 +28,6 @@ export type BodyProps = {
   neutral?: string;
 };
 
-const TENDON_COLOR = new THREE.Color("#e9e1d2");
 const INJURY_COLOR = new THREE.Color("#3a0606");
 const TENDON_INJURY_COLOR = new THREE.Color("#ffb020");
 const HOVER_COLOR = new THREE.Color("#ff6a2a");
@@ -37,44 +37,6 @@ const IRIS = new THREE.Color("#7a5232");
 const IRIS_IN = new THREE.Color("#a77a45");
 const IRIS_RING = new THREE.Color("#3a2617");
 const PUPIL = new THREE.Color("#0d0a08");
-
-/** procedural muscle fibres as a normal perturbation (no textures needed) */
-function withFibers(mat: THREE.MeshPhysicalMaterial, strength: number) {
-  mat.userData["fiber"] = { value: strength };
-  mat.onBeforeCompile = (sh) => {
-    sh.uniforms["uFiber"] = mat.userData["fiber"];
-    sh.vertexShader = sh.vertexShader
-      .replace(
-        "#include <common>",
-        "#include <common>\nattribute vec3 fiber;\nattribute float fiberMask;\nvarying vec3 vFiber;\nvarying vec3 vPosW;\nvarying float vMask;",
-      )
-      .replace(
-        "#include <project_vertex>",
-        "#include <project_vertex>\nvFiber = normalize(mat3(modelMatrix) * fiber);\nvPosW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvMask = fiberMask;",
-      );
-    sh.fragmentShader = sh.fragmentShader
-      .replace(
-        "#include <common>",
-        "#include <common>\nuniform float uFiber;\nvarying vec3 vFiber;\nvarying vec3 vPosW;\nvarying float vMask;",
-      )
-      .replace(
-        "#include <normal_fragment_maps>",
-        `#include <normal_fragment_maps>
-        {
-          vec3 fW = normalize(vFiber);
-          vec3 refAxis = abs(fW.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-          vec3 p1 = normalize(cross(fW, refAxis));
-          vec3 p2 = cross(fW, p1);
-          float u = dot(vPosW, p1) * 1500.0 + 2.6 * sin(dot(vPosW, p2) * 260.0) + 1.4 * sin(dot(vPosW, fW) * 55.0);
-          float fade = 1.0 - smoothstep(0.7, 2.4, fwidth(u));
-          float s = sin(u) * 0.6 + sin(u * 2.17 + 1.3) * 0.4;
-          vec3 bV = normalize((viewMatrix * vec4(p1, 0.0)).xyz);
-          normal = normalize(normal + bV * s * uFiber * vMask * fade);
-        }`,
-      );
-  };
-  return mat;
-}
 
 /** draws a layer (clothes, hair) over the skin: pushed out along the normal, clipped smoothly by its mask */
 function layerMaterial(mat: THREE.Material, offset: number, channel: number) {
@@ -248,17 +210,7 @@ export function Body({
       return t;
     };
     const skinTex = tex(model?.header.skinTex);
-    const muscle = withFibers(
-      new THREE.MeshPhysicalMaterial({
-        vertexColors: true,
-        roughness: 0.42,
-        clearcoat: 0.55,
-        clearcoatRoughness: 0.35,
-        sheen: 0.6,
-        sheenColor: new THREE.Color("#ffd6c7"),
-      }),
-      0.32,
-    );
+    const muscle = createMuscleMaterial();
     const skinMat = withFibers(
       new THREE.MeshPhysicalMaterial({
         color: skinTex ? "#ffffff" : sex === "m" ? "#d9a98c" : "#e6b9a0",
