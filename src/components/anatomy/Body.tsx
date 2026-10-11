@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Muscle, Profile } from "@/lib/training";
 
-type Part = { m?: Muscle; p: [number, number, number]; s: [number, number, number]; r?: [number, number, number]; mirror?: boolean };
+type Part = { m?: Muscle; p: [number, number, number]; s: [number, number, number]; r?: [number, number, number] | undefined; mirror?: boolean };
 
 // Muscle volumes (reference body 1.75m). Right side mirrored automatically.
 const MUSCLE_PARTS: Part[] = [
