@@ -99,7 +99,7 @@ function Section({
 const STEPS = [
   {
     t: "Crie o avatar",
-    d: "Homem ou mulher, altura, peso e percentual de gordura. É o ponto de partida do corpo que vai mudar.",
+    d: "Altura, peso e percentual de gordura. É o ponto de partida do corpo que vai mudar. O corpo feminino chega na v2.",
   },
   {
     t: "Monte a semana",
@@ -360,8 +360,7 @@ export function Landing() {
               Todo atalho tem conta para pagar.
             </h3>
             <p className="mt-3 text-sm leading-relaxed opacity-70">
-              Simule testosterona em reposição médica ou acima do nível natural, em homens e
-              mulheres.
+              Simule testosterona em reposição médica ou acima do nível natural.
             </p>
             <ul className="mt-5 space-y-3 text-sm">
               <li>
@@ -403,8 +402,9 @@ export function Landing() {
             </p>
             <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted-foreground">
               Modelo anatômico: Z-Anatomy (CC BY-SA 4.0), baseado em BodyParts3D © The Database
-              Center for Life Science (CC BY-SA 2.1 JP). Corpo feminino adaptado com dados do
-              MakeHuman (CC0). Os modelos adaptados são distribuídos sob CC BY-SA 4.0.
+              Center for Life Science (CC BY-SA 2.1 JP). Proporções, pele, cabelo e sobrancelhas do
+              MakeHuman (CC0: Margaret Toigo, culturalibre, Mindfront); short de Mindfront (CC BY).
+              Os modelos adaptados são distribuídos sob CC BY-SA 4.0.
             </p>
           </div>
         </section>

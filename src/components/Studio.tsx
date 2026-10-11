@@ -61,6 +61,8 @@ function loadSaved(): Partial<Saved> {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return {};
     const s = JSON.parse(raw) as Partial<Saved>;
+    // v1 has only the male body: older female saves start over
+    if (s.profile?.sex === "f") return {};
     // older saves may miss newer muscle heads: fill them from their group
     if (s.sim)
       for (const h of HEAD_IDS)
@@ -321,6 +323,8 @@ export function Studio() {
                   <button
                     type="button"
                     key={s}
+                    disabled={s === "f"}
+                    title={s === "f" ? "O corpo feminino chega na v2" : undefined}
                     onClick={() =>
                       setProfile({
                         sex: s,
@@ -329,11 +333,16 @@ export function Studio() {
                         bf: s === "m" ? 16 : 24,
                       })
                     }
-                    className={`rounded-2xl border p-4 text-left transition-all ${profile.sex === s ? "border-foreground bg-foreground text-background" : "hover:border-foreground/40"}`}
+                    className={`rounded-2xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-45 ${profile.sex === s ? "border-foreground bg-foreground text-background" : "hover:border-foreground/40"}`}
                   >
                     <div className="font-display text-lg font-semibold">
                       {s === "m" ? "Masculino" : "Feminino"}
                     </div>
+                    {s === "f" && (
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Em breve · v2
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
