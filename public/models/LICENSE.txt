@@ -1,0 +1,16 @@
+Modelos anatômicos (body-m.*, body-f.*)
+
+Derivados de Z-Anatomy - The libre 3D atlas of anatomy - CC BY-SA 4.0
+https://github.com/Z-Anatomy/Models-of-human-anatomy
+que por sua vez se baseia em BodyParts3D, (c) The Database Center for Life Science,
+licenciado sob Creative Commons Attribution-Share Alike 2.1 Japan.
+
+O corpo feminino foi adaptado com alvos de forma do MakeHuman (CC0 1.0).
+https://github.com/makehumancommunity/makehuman
+
+Alterações: seleção de estruturas, redução de polígonos, conversão de formato,
+remoção da região genital, deformação para o corpo feminino.
+
+Estes arquivos adaptados são distribuídos sob Creative Commons
+Attribution-ShareAlike 4.0 International: https://creativecommons.org/licenses/by-sa/4.0/
+O restante do código do projeto não é afetado por esta licença.

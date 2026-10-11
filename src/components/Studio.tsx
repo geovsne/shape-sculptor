@@ -64,12 +64,7 @@ export function Studio() {
     [plan, preview, pro, nutrition, hormone],
   ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // DEBUG-OVERRIDE-START
-  const dbg = typeof window !== "undefined" && import.meta.env.DEV ? new URLSearchParams(window.location.search) : null;
-  const dev = { ...preview.dev };
-  dbg?.get("dev")?.split(",").forEach((kv) => { const [k, v] = kv.split(":"); if (k && v) (dev as Record<string, number>)[k] = +v; });
-  const dbgProfile = dbg?.get("sex") ? { ...preview.profile, sex: dbg.get("sex") as "m" | "f", bf: +(dbg.get("bf") ?? preview.profile.bf) } : dbg?.get("bf") ? { ...preview.profile, bf: +dbg.get("bf")! } : null;
-  // DEBUG-OVERRIDE-END
+  const dev = preview.dev;
   const injured: Partial<Record<Muscle, number>> = {};
   const tendonInjured: Partial<Record<Muscle, number>> = {};
   for (const i of sim?.injuries ?? []) {
@@ -103,7 +98,7 @@ export function Studio() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
       <div className="relative h-[60vh] lg:absolute lg:inset-0 lg:h-auto">
         <Viewer
-          profile={dbgProfile ?? preview.profile}
+          profile={preview.profile}
           dev={dev}
           skin={skin}
           colorFor={colorFor}
@@ -423,6 +418,10 @@ export function Studio() {
           >
             <div className="font-display text-3xl font-bold">
               MYO/LAB <span className="text-primary">PRO</span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="font-display text-4xl font-bold">R$ 10</span>
+              <span className="text-sm text-muted-foreground">pagamento único · vitalício</span>
             </div>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li>

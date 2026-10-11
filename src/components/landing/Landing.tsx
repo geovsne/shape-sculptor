@@ -268,8 +268,8 @@ export function Landing() {
                   <th className="px-6 py-4 font-display font-semibold">Grátis</th>
                   <th className="px-6 py-4 font-display font-semibold">
                     PRO{" "}
-                    <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-                      PRO
+                    <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                      R$ 10 · vitalício
                     </span>
                   </th>
                 </tr>
@@ -285,6 +285,10 @@ export function Landing() {
               </tbody>
             </table>
           </div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            PRO por <strong className="text-foreground">R$ 10</strong>, pagamento único e acesso
+            vitalício. Sem assinatura.
+          </p>
         </Section>
 
         <section className="mx-auto grid max-w-6xl gap-4 px-4 pb-16 sm:px-8 lg:grid-cols-3">
@@ -392,6 +396,11 @@ export function Landing() {
               O MYO/LAB é uma simulação educativa com modelos simplificados. Não é prescrição de
               treino, dieta ou tratamento. Hormônios só devem ser usados com indicação e
               acompanhamento médico; o simulador não informa doses.
+            </p>
+            <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              Modelo anatômico: Z-Anatomy (CC BY-SA 4.0), baseado em BodyParts3D © The Database
+              Center for Life Science (CC BY-SA 2.1 JP). Corpo feminino adaptado com dados do
+              MakeHuman (CC0). Os modelos adaptados são distribuídos sob CC BY-SA 4.0.
             </p>
           </div>
         </section>
