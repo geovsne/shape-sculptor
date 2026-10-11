@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MUSCLES, MUSCLE_IDS, TENDONS } from "@/lib/training";
+import { HEADS, HEADS_OF, MUSCLES, MUSCLE_IDS, TENDONS } from "@/lib/training";
 import type { analyzePlan, SimState } from "@/lib/sim";
 import { AlertRow } from "./ui";
 
@@ -178,6 +178,29 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
                     style={{ width: `${sim.dev[m] * 100}%` }}
                   />
                 </div>
+                {HEADS_OF[m].length > 1 && (
+                  <div
+                    className="mt-1 grid gap-1"
+                    style={{ gridTemplateColumns: `repeat(${HEADS_OF[m].length}, minmax(0, 1fr))` }}
+                  >
+                    {HEADS_OF[m].map((h) => (
+                      <div
+                        key={h}
+                        title={`${HEADS[h].name}: ${Math.round(analysis.headSets[h] * 10) / 10} séries efetivas/sem`}
+                      >
+                        <div className="h-1 overflow-hidden rounded-full bg-secondary">
+                          <div
+                            className="h-full rounded-full bg-primary/60 transition-all duration-700"
+                            style={{ width: `${sim.headDev[h] * 100}%` }}
+                          />
+                        </div>
+                        <div className="mt-0.5 truncate text-[9px] text-muted-foreground">
+                          {HEADS[h].short}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

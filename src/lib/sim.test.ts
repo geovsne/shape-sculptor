@@ -80,3 +80,34 @@ describe("simulação", () => {
     expect(a.alerts.some((x) => x.level === "danger" && /1RM/.test(x.text))).toBe(true);
   });
 });
+
+describe("cabeças musculares", () => {
+  const only = (exId: string): Plan => {
+    const p = emptyPlan();
+    for (const d of [0, 2, 4]) p[d] = [{ exId, sets: 5, reps: 10, intensity: "pesada" }];
+    return p;
+  };
+  it("tríceps francês desenvolve mais a cabeça longa; pulley, a lateral", () => {
+    const fr = run(only("frenchPress"), bulk, 12);
+    const pd = run(only("pushdown"), bulk, 12);
+    expect(fr.headDev.triceps_long).toBeGreaterThan(fr.headDev.triceps_lateral);
+    expect(pd.headDev.triceps_lateral).toBeGreaterThan(pd.headDev.triceps_long);
+  });
+  it("supino inclinado prioriza o peitoral superior; declinado, o inferior", () => {
+    const inc = run(only("dbIncline"), bulk, 12);
+    const dec = run(only("declineBench"), bulk, 12);
+    expect(inc.headDev.chest_upper).toBeGreaterThan(inc.headDev.chest_lower);
+    expect(dec.headDev.chest_lower).toBeGreaterThan(dec.headDev.chest_upper);
+  });
+  it("só glúteo: só o glúteo cresce", () => {
+    const s = run(
+      only("hipThrust"),
+      bulk,
+      16,
+      initSim({ sex: "f", height: 165, weight: 60, bf: 24 }),
+    );
+    expect(s.dev.glutes).toBeGreaterThan(0.3);
+    expect(s.dev.chest).toBeLessThan(0.2);
+    expect(s.dev.quads).toBeLessThan(0.2);
+  });
+});

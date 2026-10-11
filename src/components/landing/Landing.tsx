@@ -113,6 +113,10 @@ const STEPS = [
 
 const ENGINE = [
   [
+    "Cabeças musculares",
+    "Cada cabeça tem desenvolvimento próprio. Tríceps francês puxa a cabeça longa, pulley a lateral; supino inclinado o peitoral superior, declinado o inferior.",
+  ],
+  [
     "Volume por músculo",
     "Séries efetivas por semana. Entre 10 e 20 é a faixa produtiva; acima disso cada série rende menos e cansa mais.",
   ],

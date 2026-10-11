@@ -1,4 +1,4 @@
-import type { Muscle, Sex } from "@/lib/training";
+import type { Head, Muscle, Sex } from "@/lib/training";
 
 /**
  * Anatomical body model built from Z-Anatomy (CC BY-SA 4.0, derived from BodyParts3D).
@@ -13,6 +13,7 @@ export type Part = {
   side: "l" | "r" | "c";
   group: Muscle | null;
   tendon: boolean;
+  head: Head | null;
   v0: number;
   nv: number;
 };
@@ -24,6 +25,7 @@ type Header = {
   scale: [number, number, number];
   height: number;
   groups: Muscle[];
+  heads: Head[];
   fatRegions: string[];
   parts: Part[];
   sections: { name: string; offset: number; dtype: string; shape: number[] }[];
@@ -44,8 +46,13 @@ export type BodyModel = {
     amp: Float32Array;
     fiber: Float32Array;
     end: Float32Array;
+    head: Uint8Array;
+    head2: Uint8Array;
+    hw: Float32Array;
   };
   bone: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array };
+  eye: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array; kind: Float32Array };
+  hair: { pos: Float32Array; nrm: Float32Array; idx: Uint32Array };
   skin: {
     pos: Float32Array;
     nrm: Float32Array;
@@ -56,6 +63,11 @@ export type BodyModel = {
     bindW: Float32Array;
     bindSum: Float32Array;
     fiber: Float32Array;
+    /** 0 none, 1 shorts, 2 sports top, 3 hair cap (per triangle) */
+    cloth: Uint8Array;
+    /** smooth masks per vertex: shorts, top, hair cap (0.5 = edge) */
+    clothW: Float32Array;
+    tint: Float32Array;
   };
 };
 
@@ -154,8 +166,18 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
       amp: scaled("muscle.amp", h.ampMax, 65535),
       fiber: unit("muscle.fiber"),
       end: scaled("muscle.end", 1, 255),
+      head: raw("muscle.head") as Uint8Array,
+      head2: raw("muscle.head2") as Uint8Array,
+      hw: scaled("muscle.hw", 1, 255),
     },
     bone: { pos: pos("bone.pos"), nrm: unit("bone.nrm"), idx: raw("bone.idx") as Uint32Array },
+    eye: {
+      pos: pos("eye.pos"),
+      nrm: unit("eye.nrm"),
+      idx: raw("eye.idx") as Uint32Array,
+      kind: scaled("eye.kind", 2, 255),
+    },
+    hair: { pos: pos("hair.pos"), nrm: unit("hair.nrm"), idx: raw("hair.idx") as Uint32Array },
     skin: {
       pos: pos("skin.pos"),
       nrm: unit("skin.nrm"),
@@ -166,6 +188,9 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
       bindW,
       bindSum,
       fiber: unit("skin.fiber"),
+      cloth: raw("skin.cloth") as Uint8Array,
+      clothW: scaled("skin.clothW", 1, 255),
+      tint: scaled("skin.tint", 1, 255),
     },
   };
 }
@@ -205,26 +230,29 @@ const FAT_DIST: Record<Sex, Record<string, number>> = {
 
 /** growth of a muscle group as a fraction of its local half-thickness */
 export function growthOf(dev: number, sex: Sex) {
-  return Math.max(-0.4, Math.min(1.6, (dev - REST_DEV[sex]) * 2));
+  // women build less absolute size for the same training: softer, athletic look
+  const k = sex === "m" ? 2 : 1.25;
+  return Math.max(-0.4, Math.min(sex === "m" ? 1.6 : 1, (dev - REST_DEV[sex]) * k));
 }
 
 export function deform(
   m: BodyModel,
-  dev: Record<Muscle, number>,
+  headDev: Record<Head, number>,
   bf: number,
   out: { muscle: Float32Array; skin: Float32Array },
 ) {
   const { header: h, muscle: mu, skin: sk } = m;
   const sex = h.sex;
   const G = new Float32Array(256);
-  h.groups.forEach((g, i) => (G[i] = growthOf(dev[g] ?? REST_DEV[sex], sex)));
+  h.heads.forEach((hd, i) => (G[i] = growthOf(headDev[hd] ?? REST_DEV[sex], sex)));
 
   // muscles: push along the normal, scaled by local thickness and belly profile
   const nv = mu.amp.length;
   const disp = new Float32Array(nv * 3);
   for (let i = 0; i < nv; i++) {
-    const g = mu.group[i]!;
-    const d = g < 200 ? mu.amp[i]! * G[g]! : 0;
+    const h1 = mu.head[i]!;
+    const w2 = mu.hw[i]!;
+    const d = h1 < 200 ? mu.amp[i]! * ((1 - w2) * G[h1]! + w2 * G[mu.head2[i]!]!) : 0;
     const j = i * 3;
     disp[j] = mu.nrm[j]! * d;
     disp[j + 1] = mu.nrm[j + 1]! * d;
@@ -261,7 +289,8 @@ export function deform(
   }
   const adj = skinAdjacency(m);
   let T = new Float32Array(ns * 3);
-  for (let it = 0; it < 3; it++) {
+  const skinIters = sex === "m" ? 5 : 8;
+  for (let it = 0; it < skinIters; it++) {
     for (let i = 0; i < ns; i++) {
       const a = adj.start[i]!,
         b = adj.start[i + 1]!;
@@ -283,15 +312,38 @@ export function deform(
     }
     [D, T] = [T, D];
   }
+  const abdIdx = Math.max(0, regions.indexOf("abdomen"));
+  const bellyK = sex === "m" ? 0.0016 : 0.0009;
+  // fat layer: thickness per vertex, then smoothed so extra fat rounds the contours off
+  let Fv = new Float32Array(ns);
   for (let i = 0; i < ns; i++) {
-    const j = i * 3;
     let mult = 0;
     for (let r = 0; r < R; r++) mult += sk.region[i * R + r]! * dist[r]!;
     const depth = sk.depth[i]!;
-    const fat = Math.max(depth - 0.0015, 0.004 * mult);
-    let f = fat * mult * fatScale;
+    const fat = Math.min(0.03, Math.max(depth - 0.0015, 0.004 * mult));
+    // belly: visceral and abdominal fat push the front of the trunk out as BF rises
+    const abd = sk.region[i * R + abdIdx]!;
+    Fv[i] = fat * mult * fatScale + abd * bellyK * Math.max(0, bf - h.restBf);
+  }
+  const extra = Math.max(0, Math.min(1, fatScale));
+  const fatIters = Math.round(2 + 12 * extra);
+  let Ft = new Float32Array(ns);
+  for (let it = 0; it < fatIters; it++) {
+    for (let i = 0; i < ns; i++) {
+      const a = adj.start[i]!,
+        b = adj.start[i + 1]!;
+      let sum = 0;
+      for (let e = a; e < b; e++) sum += Fv[adj.nbr[e]!]!;
+      const avg = b > a ? sum / (b - a) : Fv[i]!;
+      Ft[i] = 0.5 * Fv[i]! + 0.5 * avg;
+    }
+    [Fv, Ft] = [Ft, Fv];
+  }
+  for (let i = 0; i < ns; i++) {
+    const j = i * 3;
+    const depth = sk.depth[i]!;
     // never sink the skin into what lies underneath
-    f = Math.max(f, -(depth - 0.0012));
+    const f = Math.max(Fv[i]!, -(depth - 0.0012));
     out.skin[j] = sk.pos[j]! + D[j]! + sk.nrm[j]! * f;
     out.skin[j + 1] = sk.pos[j + 1]! + D[j + 1]! + sk.nrm[j + 1]! * f;
     out.skin[j + 2] = sk.pos[j + 2]! + D[j + 2]! + sk.nrm[j + 2]! * f;
@@ -326,7 +378,7 @@ function skinAdjacency(m: BodyModel) {
 
 /** how visible muscle detail is through the skin (0 = smooth, 1 = shredded) */
 export function leanness(bf: number, sex: Sex) {
-  const lo = sex === "m" ? 6 : 13;
-  const hi = sex === "m" ? 16 : 26;
+  const lo = sex === "m" ? 6 : 11;
+  const hi = sex === "m" ? 16 : 19;
   return Math.max(0, Math.min(1, (hi - bf) / (hi - lo)));
 }

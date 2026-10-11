@@ -39,8 +39,9 @@ export function Viewer(props: BodyProps) {
       <ContactShadows position={[0, 0, 0]} opacity={0.35} scale={3} blur={2.4} far={1.5} />
       <OrbitControls
         target={[0, 0.95, 0]}
-        enablePan={false}
-        minDistance={1.2}
+        enablePan
+        screenSpacePanning
+        minDistance={0.35}
         maxDistance={4.5}
         minPolarAngle={0.3}
         maxPolarAngle={Math.PI / 1.9}

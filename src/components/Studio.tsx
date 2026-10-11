@@ -7,6 +7,11 @@ import {
   MUSCLES,
   MUSCLE_IDS,
   TENDONS,
+  HEADS,
+  HEAD_IDS,
+  HEADS_OF,
+  headEmphasis,
+  type Head,
   type Equip,
   type Muscle,
   type Profile,
@@ -40,6 +45,7 @@ export function Studio() {
   const [muscle, setMuscle] = useState<Muscle | null>(null);
   const [equip, setEquip] = useState<(typeof EQUIPS)[number]>("Todos");
   const [exId, setExId] = useState<string | null>("ohp");
+  const [pickedHead, setPickedHead] = useState<Head | null>(null);
 
   const [profile, setProfile] = useState<Profile>({ sex: "m", height: 178, weight: 78, bf: 16 });
   const [sim, setSim] = useState<SimState | null>(null);
@@ -64,7 +70,7 @@ export function Studio() {
     [plan, preview, pro, nutrition, hormone],
   ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dev = preview.dev;
+  const headDev = preview.headDev;
   const injured: Partial<Record<Muscle, number>> = {};
   const tendonInjured: Partial<Record<Muscle, number>> = {};
   for (const i of sim?.injuries ?? []) {
@@ -72,14 +78,24 @@ export function Studio() {
     else for (const m of TENDONS[i.target.t].muscles) tendonInjured[m] = i.weeksLeft;
   }
 
-  const colorFor = (m: Muscle) => {
+  /** how much the selected exercise works a head (primary = 1, synergist = 0.5) */
+  const workOf = (h: Head) => {
+    if (!ex) return 0;
+    const g = HEADS[h].group;
+    const k = ex.primary.includes(g) ? 1 : ex.secondary.includes(g) ? 0.5 : 0;
+    return k * headEmphasis(ex, h);
+  };
+  const colorFor = (m: Muscle, h: Head) => {
     if (mode === "explore") {
-      if (ex?.primary.includes(m)) return "#ff3b1f";
-      if (ex?.secondary.includes(m)) return "#ff9a5a";
-      if (muscle === m) return "#ff3b1f";
+      if (ex) {
+        const w = workOf(h);
+        return w > 0 ? hex(lerp([235, 196, 170], [255, 40, 16], Math.min(1, w))) : "#d9b8ae";
+      }
+      if (pickedHead === h) return "#ff3b1f";
+      if (muscle === m) return "#ff8a5a";
       return "#d9b8ae";
     }
-    return hex(lerp([214, 190, 182], [214, 24, 30], Math.min(1, (dev[m] - 0.15) / 0.7)));
+    return hex(lerp([196, 128, 118], [196, 22, 28], Math.min(1, (headDev[h] - 0.15) / 0.7)));
   };
 
   const simulate = (weeks: number) => {
@@ -99,14 +115,16 @@ export function Studio() {
       <div className="relative h-[60vh] lg:absolute lg:inset-0 lg:h-auto">
         <Viewer
           profile={preview.profile}
-          dev={dev}
+          headDev={headDev}
+          neutral={mode === "explore" ? "#d9b8ae" : "#b0675c"}
           skin={skin}
           colorFor={colorFor}
           injured={injured}
           tendonInjured={tendonInjured}
-          onPick={(m) => {
+          onPick={(m, h) => {
             if (mode !== "explore") return;
             setMuscle(m);
+            setPickedHead(h);
             setExId(null);
           }}
         />
@@ -371,6 +389,83 @@ export function Studio() {
                       </div>
                     </div>
                   )}
+                  <div className="border-t pt-3">
+                    <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Ativação por cabeça
+                    </div>
+                    <div className="space-y-1.5">
+                      {[...ex.primary, ...ex.secondary]
+                        .flatMap((m) => HEADS_OF[m])
+                        .filter((h, i, arr) => arr.indexOf(h) === i && workOf(h) > 0)
+                        .sort((x, y) => workOf(y) - workOf(x))
+                        .map((h) => (
+                          <div key={h}>
+                            <div className="flex justify-between text-[11px]">
+                              <span>{HEADS[h].name}</span>
+                              <span className="tabular-nums text-muted-foreground">
+                                {Math.round(workOf(h) * 100)}%
+                              </span>
+                            </div>
+                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary">
+                              <div
+                                className="h-full rounded-full bg-primary"
+                                style={{ width: `${workOf(h) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {!ex && muscle && (
+                <div className="mt-4 space-y-4">
+                  {HEADS_OF[muscle].length > 1 && (
+                    <div className="flex flex-wrap gap-1">
+                      {HEADS_OF[muscle].map((h) => (
+                        <button
+                          type="button"
+                          key={h}
+                          onClick={() => setPickedHead(h)}
+                          className={`rounded-full px-2.5 py-1 text-xs ${pickedHead === h ? "bg-primary text-primary-foreground" : "bg-secondary"}`}
+                        >
+                          {HEADS[h].short}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {(() => {
+                    const target =
+                      pickedHead && HEADS[pickedHead].group === muscle
+                        ? pickedHead
+                        : HEADS_OF[muscle][0]!;
+                    const best = EXERCISES.filter((e) => e.primary.includes(HEADS[target].group))
+                      .map((e) => ({ e, w: headEmphasis(e, target) }))
+                      .sort((x, y) => y.w - x.w)
+                      .slice(0, 5);
+                    return (
+                      <div>
+                        <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                          Melhores para {HEADS[target].name}
+                        </div>
+                        <div className="space-y-1">
+                          {best.map(({ e, w }) => (
+                            <button
+                              type="button"
+                              key={e.id}
+                              onClick={() => setExId(e.id)}
+                              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs hover:bg-secondary"
+                            >
+                              <span>{e.name}</span>
+                              <span className="tabular-nums text-muted-foreground">
+                                {Math.round(w * 100)}%
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </>

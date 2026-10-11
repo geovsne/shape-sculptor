@@ -35,11 +35,21 @@ def load_target(path, n):
     return d
 
 
-def prepare(mh_dir, za_skin_pos, out):
+def prepare(mh_dir, za_skin_pos, out, sex="f"):
     V, body = load_obj_body(f"{mh_dir}/3dobjs/base.obj")
-    M = (V + load_target(f"{mh_dir}/targets/macrodetails/caucasian-male-young.target", len(V)))[body]
-    Fm = (V + load_target(f"{mh_dir}/targets/macrodetails/caucasian-female-young.target", len(V))
-          + 0.6 * load_target(f"{mh_dir}/targets/breast/female-young-averagemuscle-averageweight-maxcup-averagefirmness.target", len(V)))[body]
+    T = lambda name: load_target(f"{mh_dir}/targets/{name}.target", len(V))
+    male = V + T("macrodetails/caucasian-male-young")
+    M = male[body]
+    if sex == "f":
+        # athletic model proportions: ideal proportions, fuller hips and glutes
+        Fm = (V + T("macrodetails/caucasian-female-young")
+              + 0.6 * T("breast/female-young-averagemuscle-averageweight-maxcup-averagefirmness")
+              + 1.0 * T("macrodetails/proportions/female-young-averagemuscle-averageweight-idealproportions")
+              + 0.35 * T("hip/hip-scale-horiz-incr")
+              + 0.55 * T("buttocks/buttocks-volume-incr"))[body]
+    else:
+        # same man with "ideal" (classical) proportions
+        Fm = (male + 1.0 * T("macrodetails/proportions/male-young-averagemuscle-averageweight-idealproportions"))[body]
     # MakeHuman: decimetres, Y up, +Z forward  (same axes as three.js)
     za = za_skin_pos
     s = (za[:, 1].max() - za[:, 1].min()) / (M[:, 1].max() - M[:, 1].min())
@@ -57,7 +67,8 @@ def prepare(mh_dir, za_skin_pos, out):
     arm = (np.abs(M[:, 0]) > 0.205 * H / 1.71) & (M[:, 1] < 0.83 * H)
     disp = Fm - M
     breast = (M[:, 1] > 0.68 * H) & (M[:, 1] < 0.8 * H) & (M[:, 2] > 0.0) & (disp[:, 2] > 0.006) & ~arm
-    np.savez(out, M=M, F=Fm, arm=arm, breast=breast, H=H)
+    np.savez(out, M=M, F=Fm, arm=arm, breast=breast, H=H,
+             ratio=0.92 if sex == "f" else 1.0, radial=0.86 if sex == "f" else 1.0)
     print("mh aligned", M.min(0).round(3), M.max(0).round(3), "arm", arm.sum(), "breast", breast.sum())
 
 
@@ -78,6 +89,8 @@ def _setup(w):
     _state["D_inner"] = D[inner]
     H = float(w["H"])
     _state["H"] = H
+    _state["ratio"] = float(w["ratio"]) if "ratio" in w else 0.92
+    _state["radial"] = float(w["radial"]) if "radial" in w else 0.86
     # shoulder joints and their displacement (left = +x)
     sh = []
     for sgn in (1, -1):
@@ -98,7 +111,7 @@ def field(p, kind):
 
 def arm_transform(p, arm_weight, axes, base):
     out = base.copy()
-    ratio = 0.92
+    ratio = _state["ratio"]
     for sgn, (sh_pos, sh_disp) in zip((1, -1), _state["shoulders"]):
         sel = (arm_weight > 0) & (np.sign(p[:, 0]) == sgn)
         if not sel.any():
@@ -107,13 +120,13 @@ def arm_transform(p, arm_weight, axes, base):
         rel = p[sel] - top
         along = rel @ ax
         radial = rel - np.outer(along, ax)
-        newq = top + sh_disp + np.outer(np.maximum(along, 0) * ratio + np.minimum(along, 0), ax) + radial * 0.86
+        newq = top + sh_disp + np.outer(np.maximum(along, 0) * ratio + np.minimum(along, 0), ax) + radial * _state["radial"]
         aw = arm_weight[sel][:, None]
         out[sel] = base[sel] * (1 - aw) + newq * aw
     return out
 
 
-def warp_body(SV, smooth, MV, BV, armS, armM, armB, axes, w):
+def warp_body(SV, smooth, MV, BV, armS, armM, armB, axes, w, extras=()):
     """Skin gets the full field (breasts included), smoothed over the surface.
     Muscles and bones follow the skin field without the breast bulge."""
     _setup(w)
@@ -131,7 +144,7 @@ def warp_body(SV, smooth, MV, BV, armS, armM, armB, axes, w):
         base = P + (Dinner[i] * ww[..., None]).sum(1)
         return arm_transform(P, armP, axes, base)
 
-    return S2, interior(MV, armM), interior(BV, armB)
+    return S2, interior(MV, armM), interior(BV, armB), [interior(E, np.zeros(len(E))) for E in extras]
 
 
 def arm_axes(skin_pos, arm_mask):

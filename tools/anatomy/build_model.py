@@ -47,6 +47,9 @@ def taubin(mesh, iterations, lamb=0.5, nu=-0.53):
             x = np.where(has, x + f * (A @ x - x), x)
     return x
 
+sys.path.insert(0, __import__("os").path.dirname(__file__))
+from mapping import HEADS, HEAD_OF  # noqa: E402
+
 SRC = sys.argv[1]  # dir with za_raw.npz/json
 OUT = sys.argv[2]
 SEX = sys.argv[3] if len(sys.argv) > 3 else "m"
@@ -105,6 +108,7 @@ def apply_warp(v, kind):
 # ---------------------------------------------------------------- muscles
 parts = []  # part table
 mus_v, mus_n, mus_t, mus_part, mus_group, mus_amp, mus_fiber, mus_end = [], [], [], [], [], [], [], []
+mus_h1, mus_h2, mus_hw = [], [], []
 vo = 0
 TARGET_RATIO = 0.12
 for i, m in enumerate(meta):
@@ -146,18 +150,41 @@ for i, m in enumerate(meta):
     # smooth thickness over the mesh
     thick = smoother(mesh)(thick, 6)
     amp = 0.5 * thick * belly
+    if m["base"] == "Rectus abdominis muscle":
+        # six-pack: tendinous intersections and the linea alba don't bulge and look pale
+        yy = v[:, 1]; t_ = (yy - yy.min()) / max(1e-6, np.ptp(yy))
+        groove = np.zeros(len(v))
+        for tk in (0.47, 0.66, 0.84):
+            groove = np.maximum(groove, np.exp(-((t_ - tk) / 0.035) ** 2))
+        groove = np.maximum(groove, np.exp(-(v[:, 0] / 0.0075) ** 2))
+        belly = belly * (1 - 0.8 * groove)
+        amp = amp * (1 - 0.8 * groove)
+        segment_end = groove
+    else:
+        segment_end = None
     is_tendon = m["base"] == "Calcaneal tendon"
     g = m["group"]
     gi = TENDON if is_tendon else (GROUPS.index(g) if g else STATIC)
     if is_tendon:
         amp[:] = 0
+    # head (and an optional second head blended by height, e.g. lower chest / lower abs)
+    h1 = HEADS.index(HEAD_OF[m["base"]]) if m["base"] in HEAD_OF else 255
+    h2, hw = h1, np.zeros(len(v))
+    yy = v[:, 1]
+    ty = (yy - yy.min()) / max(1e-6, np.ptp(yy))
+    if m["base"] == "Sternocostal head of pectoralis major muscle":
+        h2 = HEADS.index("chest_lower"); hw = np.clip((0.45 - ty) / 0.3, 0, 1)
+    if m["base"] == "Rectus abdominis muscle":
+        h2 = HEADS.index("abs_lower"); hw = np.clip((0.6 - ty) / 0.22, 0, 1)
+    mus_h1.append(np.full(len(v), h1)); mus_h2.append(np.full(len(v), h2)); mus_hw.append(hw)
     pid = len(parts)
     parts.append(dict(name=m["base"], label=m["label"], side=m["side"], group=g, tendon=is_tendon,
+                      head=HEADS[h1] if h1 != 255 else None,
                       v0=vo, nv=len(v)))
     fiber = np.tile(ax, (len(v), 1))
     mus_v.append(v); mus_n.append(n); mus_t.append(t + vo); mus_part.append(np.full(len(v), pid))
     mus_group.append(np.full(len(v), gi)); mus_amp.append(amp); mus_fiber.append(fiber)
-    mus_end.append(1 - belly)
+    mus_end.append(np.maximum(1 - belly, 0.9 * segment_end) if segment_end is not None else 1 - belly)
     vo += len(v)
 
 MV = np.concatenate(mus_v); MN = np.concatenate(mus_n); MT = np.concatenate(mus_t)
@@ -179,6 +206,7 @@ for pid in range(len(parts)):
 _bkd = None
 print("deep parts", sum(1 for pid in range(len(parts)) if covered[MP == pid].mean() > 0.6))
 MF = np.concatenate(mus_fiber); ME = np.concatenate(mus_end)
+MH1 = np.concatenate(mus_h1); MH2 = np.concatenate(mus_h2); MHW = np.concatenate(mus_hw)
 print("muscles", len(parts), "verts", len(MV), "tris", len(MT))
 
 # ---------------------------------------------------------------- bones
@@ -195,6 +223,34 @@ BV = np.concatenate(bv); BT = np.concatenate(bt)
 _db, _ = cKDTree(BV).query(MV)
 _t = np.clip((_db - 0.004) / 0.012, 0, 1)
 MA *= _t * _t * (3 - 2 * _t)
+# ---------------------------------------------------------------- eyes and fine hair
+ev, et, ek, eo = [], [], [], 0
+hv, ht, ho = [], [], 0
+_eye = {}
+for i, m in enumerate(meta):
+    if m["kind"] == "eye" and m["part"] in ("sclera", "iris"):
+        _eye[(m["side"], m["part"])] = (to_three(z[f"v{i}"]), z[f"t{i}"])
+    elif m["kind"] == "hair" and m["part"] in ("Hairs of eyebrow", "Eyelashes"):
+        v = to_three(z[f"v{i}"]); t = z[f"t{i}"]
+        hv.append(v); ht.append(t + ho); ho += len(v)
+# paint iris and pupil onto the eyeball itself: kind = angle from the gaze axis / iris angle
+for side in ("l", "r"):
+    sv_, st_ = _eye[(side, "sclera")]
+    iv_, _ = _eye[(side, "iris")]
+    mesh = trimesh.Trimesh(sv_, st_, process=True)
+    v, t = np.asarray(mesh.vertices), np.asarray(mesh.faces)
+    c = v.mean(0)
+    axis = iv_.mean(0) - c; axis /= np.linalg.norm(axis)
+    ang = lambda p: np.arccos(np.clip(((p - c) / np.linalg.norm(p - c, axis=1, keepdims=True)) @ axis, -1, 1))
+    theta = np.percentile(ang(iv_), 98) * 1.28  # enlarged iris for a friendlier look
+    ev.append(v); et.append(t + eo); ek.append(np.clip(ang(v) / theta, 0, 2)); eo += len(v)
+    # the iris disc (pupil hole closed) plugs the opening at the front of the sclera
+    im = trimesh.Trimesh(*_eye[(side, "iris")], process=True)
+    trimesh.repair.fill_holes(im)
+    iv2, it2 = np.asarray(im.vertices), np.asarray(im.faces)
+    ev.append(iv2); et.append(it2 + eo); ek.append(np.clip(ang(iv2) / theta, 0, 2)); eo += len(iv2)
+EV = np.concatenate(ev); ET = np.concatenate(et); EK = np.concatenate(ek)
+HV = np.concatenate(hv); HT = np.concatenate(ht)
 bmesh = trimesh.Trimesh(BV, BT, process=False)
 BN = bmesh.vertex_normals
 print("bones verts", len(BV), "tris", len(BT))
@@ -293,7 +349,7 @@ if WARP:
     _kd = cKDTree(SV)
     _, _ni = _kd.query(MV, k=6); armM = armW[_ni].mean(1)
     _, _ni = _kd.query(BV, k=6); armB = armW[_ni].mean(1)
-    SV, MV, BV = warp_body(SV, _sm, MV, BV, armW, armM, armB, axes, wz)
+    SV, MV, BV, (EV, HV) = warp_body(SV, _sm, MV, BV, armW, armM, armB, axes, wz, (EV, HV))
     MN = trimesh.Trimesh(MV, MT, process=False).vertex_normals
     BN = trimesh.Trimesh(BV, BT, process=False).vertex_normals
     MA *= 0.92
@@ -306,16 +362,73 @@ print("skin verts", len(SV), "tris", len(ST))
 _y = SV[:, 1]
 navel = _y[named("Umbilicus")].mean()
 crotch = _y[_gen].min() if _gen.any() else navel - 0.2
-shorts_v = (_y > crotch - 0.09) & (_y < navel - 0.025) & ~armMask
+def band(y, lo, hi, soft=0.004):
+    a = np.clip((y - lo) / soft, -1, 1); b = np.clip((hi - y) / soft, -1, 1)
+    return np.minimum(a, b)  # >0 inside, <0 outside, smooth across the edge
+
+
+_noarm = 1 - 2 * np.clip(smoother(skin)(armMask.astype(float), 8), 0, 1)
+shortsF = np.minimum(band(_y, crotch - 0.075, navel - 0.03), _noarm)
+shorts_v = shortsF > 0
 top_v = np.zeros(len(SV), bool)
+topF = np.full(len(SV), -1.0)
 if SEX == "f":
     under = _y[named("Inframammary region")].min() - 0.035
     upper = _y[named("Mammary region")].max() + 0.03
-    top_v = (_y > under) & (_y < upper) & ~armMask & ~named("Deltoid region")
+    _nodelt = 1 - 2 * np.clip(smoother(skin)(named("Deltoid region").astype(float), 8), 0, 1)
+    topF = np.minimum(np.minimum(band(_y, under, upper), _noarm), _nodelt)
+    top_v = topF > 0
 cloth = np.zeros(len(ST), np.uint8)
 cloth[shorts_v[ST].all(1)] = 1
 cloth[top_v[ST].all(1)] = 2
 print("cloth faces", (cloth == 1).sum(), (cloth == 2).sum())
+
+# hair cap (flag 3) from the scalp, friendly-looking instead of a bald anatomy head
+EAR = ["Helix", "Antihelix", "Antitragus", "Tragus", "Lobule of auricle", "Concha of auricle", "Cavity of concha",
+       "Cymba conchae", "Scapha", "Triangular fossa", "Crura of antihelix", "Eminentia conchae",
+       "Eminentia fossae triangularis", "Eminentia scaphae", "Fossa antihelica", "Intertragic incisure",
+       "Anterior notch of auricle", "Apex of auricle", "Auricular tubercle", "Posterior auricular groove",
+       "Auricular region"]
+ear = named(*EAR)
+brow = _y[named("Eyebrow")].mean()
+ear_lo = _y[named("Lobule of auricle")].min()
+headv = (_y > ear_lo - 0.03) & ~ear
+hc = SV[headv].mean(0)
+dv = SV - hc
+front = dv[:, 2] / np.maximum(np.hypot(dv[:, 0], dv[:, 2]), 1e-6)
+tt = np.clip((front + 0.25) / 0.85, 0, 1); tt = tt * tt * (3 - 2 * tt)
+back_line = ear_lo + (0.0 if SEX == "m" else -0.02)
+hairline = back_line + (brow + 0.055 - back_line) * tt
+capF = np.where(headv, np.clip((_y - hairline) / 0.004, -1, 1), -1.0)
+hair_v = capF > 0
+cloth[hair_v[ST].all(1) & (cloth == 0)] = 3
+if SEX == "f":
+    occ = SV[headv & (_y > brow - 0.01) & (_y < brow + 0.04)]
+    back_pt = occ[np.argmin(occ[:, 2])]
+    bun = trimesh.creation.icosphere(subdivisions=3, radius=0.042)
+    bun.vertices[:, 2] *= 0.85
+    bun.apply_translation(back_pt + np.array([0, 0.035, -0.03]))
+    HT = np.r_[HT, bun.faces + len(HV)]; HV = np.r_[HV, bun.vertices]
+print("hair cap faces", (cloth == 3).sum())
+
+# gentle smile: lift and pull back the mouth corners a little
+_corner = named("Angle of mouth", "Labial commissure")
+if _corner.any():
+    _cp = SV[_corner]
+    for sgn in (1, -1):
+        cc = _cp[np.sign(_cp[:, 0]) == sgn].mean(0)
+        d = np.linalg.norm(SV - cc, axis=1)
+        wgt = np.clip(1 - d / 0.016, 0, 1) ** 2
+        SV[:, 1] += wgt * 0.0022
+        SV[:, 2] -= wgt * 0.0008
+    skin = trimesh.Trimesh(SV, ST, process=False)
+    SN = skin.vertex_normals
+
+# lips a little rosier
+mouth = SV[named("Labial commissure")].mean(0)
+lips = named("Oral region", "Tubercle of upper lip", "Labial commissure", "Philtrum") & (np.linalg.norm(SV - mouth, axis=1) < 0.014)
+tint = np.zeros(len(SV)); tint[lips] = 1
+tint = smoother(skin)(tint, 2)
 
 # soft region weights
 sm = smoother(skin)
@@ -367,15 +480,17 @@ fiberS = MF[idx[:, 0]] * (bindStrength[:, None] > 0.05)
 # ---------------------------------------------------------------- pack
 ground = min(SV[:, 1].min(), MV[:, 1].min(), BV[:, 1].min())
 cx = 0.0
-lo = np.minimum.reduce([SV.min(0), MV.min(0), BV.min(0)]); hi = np.maximum.reduce([SV.max(0), MV.max(0), BV.max(0)])
-for arr in (SV, MV, BV):
+lo = np.minimum.reduce([X.min(0) for X in (SV, MV, BV, EV, HV)]); hi = np.maximum.reduce([X.max(0) for X in (SV, MV, BV, EV, HV)])
+for arr in (SV, MV, BV, EV, HV):
     arr[:, 1] -= ground
 lo[1] -= ground; hi[1] -= ground
 scale = (hi - lo)
 
 
 def qpos(v):
-    return np.round((v - lo) / scale * 65535).astype(np.uint16)
+    q = np.round((v - lo) / scale * 65535)
+    assert q.min() >= 0 and q.max() <= 65535, "position outside the quantisation box"
+    return q.astype(np.uint16)
 
 
 def qn(n):
@@ -399,6 +514,8 @@ def put(name, arr):
 put("muscle.pos", qpos(MV)); put("muscle.nrm", qn(MN)); put("muscle.idx", MT.astype(np.uint32))
 put("muscle.part", MP.astype(np.uint16)); put("muscle.group", MG.astype(np.uint8))
 put("muscle.amp", np.round(np.clip(MA, 0, 0.06) / 0.06 * 65535).astype(np.uint16))
+put("muscle.head", MH1.astype(np.uint8)); put("muscle.head2", MH2.astype(np.uint8))
+put("muscle.hw", np.round(MHW * 255).astype(np.uint8))
 put("muscle.fiber", qn(MF)); put("muscle.end", np.round(np.clip(ME, 0, 1) * 255).astype(np.uint8))
 put("bone.pos", qpos(BV)); put("bone.nrm", qn(BN)); put("bone.idx", BT.astype(np.uint32))
 put("skin.pos", qpos(SV)); put("skin.nrm", qn(SN)); put("skin.idx", ST.astype(np.uint32))
@@ -407,9 +524,17 @@ put("skin.depth", np.round(depth / 0.08 * 65535).astype(np.uint16))
 put("skin.bindIdx", idx.astype(np.uint32)); put("skin.bindW", np.round(np.clip(bindW, 0, 1) * 255).astype(np.uint8))
 put("skin.fiber", qn(fiberS + 1e-9))
 put("skin.cloth", cloth)
+_cw = np.stack([shortsF, topF, capF], 1)
+put("skin.clothW", np.round((np.clip(_cw, -1, 1) * 0.5 + 0.5) * 255).astype(np.uint8))
+put("skin.tint", np.round(np.clip(tint, 0, 1) * 255).astype(np.uint8))
+EN = trimesh.Trimesh(EV, ET, process=False).vertex_normals
+put("eye.pos", qpos(EV)); put("eye.nrm", qn(EN)); put("eye.idx", ET.astype(np.uint32))
+put("eye.kind", np.round(EK / 2 * 255).astype(np.uint8))  # 0..2 = angle / iris angle
+HN = trimesh.Trimesh(HV, HT, process=False).vertex_normals
+put("hair.pos", qpos(HV)); put("hair.nrm", qn(HN)); put("hair.idx", HT.astype(np.uint32))
 
 header = dict(version=1, sex=SEX, lo=lo.tolist(), scale=scale.tolist(), height=float(hi[1] - lo[1]),
-              groups=GROUPS, fatRegions=FAT_REGIONS, parts=parts, sections=sections,
+              groups=GROUPS, heads=HEADS, fatRegions=FAT_REGIONS, parts=parts, sections=sections,
               ampMax=0.06, depthMax=0.08, bindK=K, restBf=12 if SEX == "m" else 24)
 open(f"{OUT}/body-{SEX}.json", "w").write(json.dumps(header, ensure_ascii=False))
 open(f"{OUT}/body-{SEX}.dat", "wb").write(gzip.compress(bytes(blob), 9))

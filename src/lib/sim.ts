@@ -10,6 +10,11 @@ import {
   type Profile,
   type Sex,
   type Tendon,
+  HEADS,
+  HEADS_OF,
+  HEAD_IDS,
+  headEmphasis,
+  type Head,
 } from "./training";
 
 /* ------------------------------------------------------------------ */
@@ -351,6 +356,7 @@ export type SimState = {
   leanKg: number;
   fatKg: number;
   dev: Record<Muscle, number>;
+  headDev: Record<Head, number>;
   fatigue: Record<Muscle, number>;
   tendonStress: Record<Tendon, number>;
   overreach: number;
@@ -391,6 +397,19 @@ function mulberry32(a: number) {
   };
 }
 
+/** development of a group = size-weighted mean of its heads */
+export function groupDev(m: Muscle, hdev: Record<Head, number>) {
+  let a = 0,
+    w = 0;
+  for (const h of HEADS_OF[m]) {
+    a += hdev[h] * HEADS[h].size;
+    w += HEADS[h].size;
+  }
+  return w ? a / w : 0.25;
+}
+const initHeads = (dev: Record<Muscle, number>) =>
+  Object.fromEntries(HEAD_IDS.map((h) => [h, dev[HEADS[h].group]])) as Record<Head, number>;
+
 export function initSim(p: Profile): SimState {
   const base = p.sex === "m" ? 0.25 : 0.2;
   const fatKg = round1((p.weight * p.bf) / 100);
@@ -402,6 +421,7 @@ export function initSim(p: Profile): SimState {
     leanKg: round1(p.weight - fatKg),
     fatKg,
     dev: Object.fromEntries(MUSCLE_IDS.map((m) => [m, base])) as Record<Muscle, number>,
+    headDev: Object.fromEntries(HEAD_IDS.map((h) => [h, base])) as Record<Head, number>,
     fatigue: zero(MUSCLE_IDS),
     tendonStress: zero(TENDON_IDS),
     overreach: 0,
@@ -528,6 +548,7 @@ export function injuredMuscles(s: SimState): Partial<Record<Muscle, number>> {
 
 export function analyzePlan(plan: Plan, s: SimState, o: Options) {
   const sets = zero(MUSCLE_IDS);
+  const headSets = zero(HEAD_IDS);
   const sessions = zero(MUSCLE_IDS);
   const daily: Record<Muscle, number[]> = Object.fromEntries(
     MUSCLE_IDS.map((m) => [m, [0, 0, 0, 0, 0, 0, 0]]),
@@ -544,6 +565,7 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
       const { fat } = perSet(item, li);
       const add = (m: Muscle, c: number) => {
         sets[m] += item.sets * c;
+        for (const h of HEADS_OF[m]) headSets[h] += item.sets * c * headEmphasis(e, h);
         daily[m]![d]! += item.sets * c * fat;
         systemic += item.sets * c * fat;
       };
@@ -679,6 +701,7 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
   alerts.sort((a, b) => order[a.level] - order[b.level]);
   return {
     perMuscle,
+    headSets,
     systemic: Math.round(systemic),
     cap,
     restDays,
@@ -754,7 +777,9 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
   const F = { ...s.fatigue };
   const T = { ...s.tendonStress };
   const dev = { ...s.dev };
+  const hdev = { ...(s.headDev ?? initHeads(s.dev)) };
   const stim = zero(MUSCLE_IDS);
+  const hstim = zero(HEAD_IDS);
   let injuries = s.injuries.map((i) => ({ ...i }));
   const worsened = new Set<string>();
   let systemic = 0;
@@ -782,9 +807,11 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
     push("danger", `${label}: ${where}. ${weeks} ${weeks === 1 ? "semana" : "semanas"} fora.`);
     if (severe) {
       const ms = target.type === "muscle" ? [target.m] : TENDONS[target.t].muscles;
-      ms.forEach(
-        (m) => (dev[m] = Math.max(0.05, dev[m] * (target.type === "tendon" ? 0.8 : 0.85))),
-      );
+      const k = target.type === "tendon" ? 0.8 : 0.85;
+      ms.forEach((m) => {
+        dev[m] = Math.max(0.05, dev[m] * k);
+        HEADS_OF[m].forEach((h) => (hdev[h] = Math.max(0.05, hdev[h] * k)));
+      });
     }
   };
 
@@ -792,6 +819,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
     const day = plan[d] ?? [];
     const sLoad: Partial<Record<Muscle, number>> = {};
     const sStim: Partial<Record<Muscle, number>> = {};
+    const sHead: Partial<Record<Head, number>> = {};
     const tHeavy: Partial<Record<Tendon, { load: number; pct: number; impossibleSets: number }>> =
       {};
 
@@ -829,6 +857,8 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
         }
         sLoad[m] = (sLoad[m] ?? 0) + item.sets * c * fat;
         sStim[m] = (sStim[m] ?? 0) + (item.sets * c * st) / (1 + F[m] / 10);
+        for (const h of HEADS_OF[m])
+          sHead[h] = (sHead[h] ?? 0) + (item.sets * c * st * headEmphasis(e, h)) / (1 + F[m] / 10);
       };
       e.primary.forEach((m) => apply(m, 1, true));
       e.secondary.forEach((m) => apply(m, 0.5, false));
@@ -864,6 +894,10 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
         else addInjury({ type: "muscle", m }, "Ruptura muscular", 8, true, d);
       }
     }
+    for (const h of Object.keys(sHead) as Head[]) {
+      const raw = sHead[h]!;
+      hstim[h] += raw > 10 ? 10 + (raw - 10) * 0.3 : raw;
+    }
     for (const t of Object.keys(tHeavy) as Tendon[]) {
       const h = tHeavy[t]!;
       T[t] += h.load;
@@ -883,19 +917,21 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
     for (const t of TENDON_IDS) T[t] = Math.max(0, T[t] - 1.5 * tendonRec);
   }
 
-  /* weekly adaptation */
+  /* weekly adaptation, head by head */
   const before = { ...dev };
-  for (const m of MUSCLE_IDS) {
-    const x = Math.min(stim[m], 20) + Math.max(0, stim[m] - 20) * 0.3;
+  for (const h of HEAD_IDS) {
+    const st = hstim[h];
+    const x = Math.min(st, 20) + Math.max(0, st - 20) * 0.3;
     let g =
-      0.035 * (1 - Math.exp(-x / 10)) * Math.pow(1 - dev[m], 1.5) * eMul * pMul * H.gain * sysStim;
-    g += H.baseline * (1 - dev[m]);
-    if (stim[m] === 0) g -= 0.004;
+      0.035 * (1 - Math.exp(-x / 10)) * Math.pow(1 - hdev[h], 1.5) * eMul * pMul * H.gain * sysStim;
+    g += H.baseline * (1 - hdev[h]);
+    if (st === 0) g -= 0.004;
     if (r < 0.8) g -= 0.006 * ((0.8 - r) / 0.2 + 0.5);
     if (r < 0.8 && s.overreach > 0.3) g -= 0.006;
     if (post) g -= 0.004;
-    dev[m] = clamp(dev[m] + g, 0.05, 1);
+    hdev[h] = clamp(hdev[h] + g, 0.05, 1);
   }
+  for (const m of MUSCLE_IDS) dev[m] = groupDev(m, hdev);
   let leanDelta =
     MUSCLE_IDS.reduce((a, m) => a + ((dev[m] - before[m]) * MUSCLES[m].size) / SIZE_SUM, 0) *
     LEAN_SCALE;
@@ -906,7 +942,8 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
   if (fatKg < floor) {
     const missingKcal = (floor - fatKg) * 7700;
     const leanBurn = missingKcal / 1000 / LEAN_SCALE;
-    MUSCLE_IDS.forEach((m) => (dev[m] = clamp(dev[m] - leanBurn, 0.05, 1)));
+    HEAD_IDS.forEach((h) => (hdev[h] = clamp(hdev[h] - leanBurn, 0.05, 1)));
+    MUSCLE_IDS.forEach((m) => (dev[m] = groupDev(m, hdev)));
     leanDelta -= leanBurn * LEAN_SCALE;
     fatDelta = floor - s.fatKg;
     fatKg = floor;
@@ -1003,6 +1040,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
     leanKg: round1(leanKg),
     fatKg: round1(fatKg),
     dev,
+    headDev: hdev,
     fatigue: F,
     tendonStress: T,
     overreach,
