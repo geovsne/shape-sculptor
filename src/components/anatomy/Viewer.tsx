@@ -24,12 +24,19 @@ function Capture({ apiRef }: { apiRef: MutableRefObject<CaptureFn | null> }) {
   return null;
 }
 
+/** phones: lighter rendering (no shadow maps, lower pixel ratio) to avoid running out of GPU memory */
+const SMALL = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+
 export function Viewer({
   captureRef,
   ...props
 }: BodyProps & { captureRef?: MutableRefObject<CaptureFn | null> }) {
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 1.0, 3.6], fov: 32 }}>
+    <Canvas
+      shadows={!SMALL}
+      dpr={[1, SMALL ? 1.5 : 2]}
+      camera={{ position: [0, 1.0, 3.6], fov: 32 }}
+    >
       {captureRef && <Capture apiRef={captureRef} />}
       <ambientLight intensity={0.6} />
       <directionalLight

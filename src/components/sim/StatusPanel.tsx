@@ -29,6 +29,7 @@ function Delta({ v, unit, invert }: { v: number; unit: string; invert?: boolean 
 
 export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analysis }) {
   const [allAlerts, setAllAlerts] = useState(false);
+  const [byHead, setByHead] = useState(false);
   const prev = sim.history.at(-2);
   const cur = sim.history.at(-1)!;
   const load = analysis.systemic / analysis.cap;
@@ -178,7 +179,7 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
                     style={{ width: `${sim.dev[m] * 100}%` }}
                   />
                 </div>
-                {HEADS_OF[m].length > 1 && (
+                {byHead && HEADS_OF[m].length > 1 && (
                   <div
                     className="mt-1 grid gap-1"
                     style={{ gridTemplateColumns: `repeat(${HEADS_OF[m].length}, minmax(0, 1fr))` }}
@@ -205,8 +206,15 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
             );
           })}
         </div>
-        <div className="mt-2 text-[10px] text-muted-foreground">
-          Ideal: 10 a 20 séries por músculo na semana.
+        <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+          <span>Ideal: 10 a 20 séries por músculo na semana.</span>
+          <button
+            type="button"
+            onClick={() => setByHead(!byHead)}
+            className="font-medium hover:text-foreground"
+          >
+            {byHead ? "Ocultar regiões" : "Ver por região"}
+          </button>
         </div>
       </div>
 

@@ -387,7 +387,7 @@ export function Studio() {
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-2">
                 <div className="glass flex gap-1 rounded-full p-1">
                   {(
                     [
@@ -407,21 +407,23 @@ export function Studio() {
                     </button>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => (confirmReset ? resetAll() : setConfirmReset(true))}
-                  onBlur={() => setConfirmReset(false)}
-                  className={`text-xs ${confirmReset ? "font-semibold text-destructive" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  {confirmReset ? "Confirmar: apagar tudo?" : "Reiniciar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSim(null)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Novo avatar
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => (confirmReset ? resetAll() : setConfirmReset(true))}
+                    onBlur={() => setConfirmReset(false)}
+                    className={`text-xs ${confirmReset ? "font-semibold text-destructive" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {confirmReset ? "Confirmar: apagar tudo?" : "Reiniciar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSim(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Novo avatar
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 flex min-h-[420px] flex-1 flex-col overflow-y-auto lg:min-h-0">
