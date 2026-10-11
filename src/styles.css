@@ -59,24 +59,28 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --font-display: "Sora", sans-serif;
+  --font-body: "Manrope", sans-serif;
 }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --background: oklch(0.985 0.002 60);
+  --foreground: oklch(0.16 0.01 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.16 0.01 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.16 0.01 260);
+  --primary: oklch(0.63 0.235 32);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.955 0.004 60);
+  --secondary-foreground: oklch(0.2 0.01 260);
+  --muted: oklch(0.955 0.004 60);
+  --muted-foreground: oklch(0.55 0.01 260);
+  --accent: oklch(0.955 0.004 60);
+  --accent-foreground: oklch(0.2 0.01 260);
+  --glow: oklch(0.9 0.06 40 / 55%);
+  --shadow-primary: 0 18px 40px -12px color-mix(in oklab, var(--primary) 60%, transparent);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: oklch(0.929 0.013 255.508);
@@ -140,5 +144,14 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+  }
+}
+
+@layer components {
+  .glass {
+    background: color-mix(in oklab, var(--card) 72%, transparent);
+    backdrop-filter: blur(24px) saturate(1.6);
+    border: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+    box-shadow: 0 30px 60px -30px oklch(0.2 0.02 260 / 25%);
   }
 }
