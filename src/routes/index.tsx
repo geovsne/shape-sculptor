@@ -1,24 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Studio } from "@/components/Studio";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "MYO/LAB — Anatomia 3D e simulador de treino" },
+      { name: "description", content: "Explore músculos em 3D, veja quais exercícios os ativam e simule a evolução do shape semana a semana." },
+      { property: "og:title", content: "MYO/LAB — Anatomia 3D e simulador de treino" },
+      { property: "og:description", content: "Explore músculos em 3D e simule sua rotina de treino semana a semana." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Studio,
 });
-
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
