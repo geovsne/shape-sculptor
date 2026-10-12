@@ -236,26 +236,68 @@ export function Studio() {
   return (
     <div className="relative min-h-screen w-full bg-background font-body text-foreground lg:h-screen lg:overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
-      <div className="sticky top-0 z-20 h-[50vh] bg-background lg:absolute lg:inset-0 lg:z-auto lg:h-auto lg:bg-transparent">
-        <Viewer
-          captureRef={captureRef}
-          profile={shown.profile}
-          headDev={headDev}
-          neutral={mode === "explore" ? "#d9b8ae" : "#b0675c"}
-          skin={skin}
-          colorFor={colorFor}
-          injured={injured}
-          tendonInjured={tendonInjured}
-          onPick={(m, h) => {
-            if (mode !== "explore") return pickInSim(m);
-            setMuscle(m);
-            setPickedHead(h);
-            setExId(null);
-          }}
-        />
+      <header className="relative z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5 bg-background px-4 pb-3 pt-4 lg:absolute lg:inset-x-0 lg:top-0 lg:bg-transparent lg:px-8 lg:py-6">
+        <Link to="/" className="order-1 block">
+          <div className="font-display text-2xl font-bold tracking-tight">
+            MYO<span className="text-primary">/</span>LAB
+          </div>
+          <div className="hidden text-[11px] uppercase tracking-[0.25em] text-muted-foreground sm:block">
+            Anatomia · Treino · Simulação
+          </div>
+        </Link>
+        <div className="glass order-3 flex w-full gap-1 rounded-full p-1 lg:order-2 lg:w-auto">
+          {(["sim", "explore"] as const).map((k) => (
+            <button
+              type="button"
+              key={k}
+              onClick={() => {
+                setMode(k);
+                if (k === "explore") setSkin(0);
+              }}
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition-all lg:flex-none lg:px-5 ${mode === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {k === "explore" ? "Explorar músculos" : "Simulador"}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => (pro ? setPro(false) : setProModal(true))}
+          className={`order-2 rounded-full px-4 py-2 text-xs font-semibold tracking-wide lg:order-3 ${pro ? "bg-primary text-primary-foreground" : "glass"}`}
+        >
+          {pro ? "PRO ATIVO" : "FREE · ver PRO"}
+        </button>
+      </header>
+
+      <div className="sticky top-0 z-20 flex h-[58vh] flex-col border-b bg-background shadow-[0_8px_24px_-18px_rgba(0,0,0,0.25)] lg:absolute lg:inset-0 lg:z-auto lg:h-auto lg:border-0 lg:bg-transparent lg:shadow-none">
+        <div className="relative min-h-0 flex-1 lg:absolute lg:inset-0">
+          <Viewer
+            captureRef={captureRef}
+            profile={shown.profile}
+            headDev={headDev}
+            neutral={mode === "explore" ? "#d9b8ae" : "#b0675c"}
+            skin={skin}
+            colorFor={colorFor}
+            injured={injured}
+            tendonInjured={tendonInjured}
+            onPick={(m, h) => {
+              if (mode !== "explore") return pickInSim(m);
+              setMuscle(m);
+              setPickedHead(h);
+              setExId(null);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setSkin(skin > 0.5 ? 0 : 1)}
+            className="glass absolute right-3 top-3 z-10 rounded-full px-3 py-1.5 text-[11px] font-semibold lg:hidden"
+          >
+            {skin > 0.5 ? "Ver músculos" : "Ver pele"}
+          </button>
+        </div>
         {sim && mode === "sim" && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center px-3 lg:bottom-24">
-            <div className="glass pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-full p-1.5 pl-4">
+          <div className="z-10 flex flex-none justify-center px-3 pb-3 pt-1 lg:pointer-events-none lg:absolute lg:inset-x-0 lg:bottom-24 lg:p-0">
+            <div className="pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-full border bg-card p-1.5 pl-4 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.3)] lg:bg-card/75 lg:backdrop-blur-xl">
               <div className="min-w-0 flex-none text-left leading-tight">
                 <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
                   {showBefore && pro ? "Antes" : `Semana ${sim.week}`}
@@ -298,47 +340,7 @@ export function Studio() {
             </div>
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => setSkin(skin > 0.5 ? 0 : 1)}
-          className="glass absolute right-3 top-28 z-10 rounded-full px-3 py-1.5 text-[11px] font-semibold lg:hidden"
-        >
-          {skin > 0.5 ? "Ver músculos" : "Ver pele"}
-        </button>
       </div>
-
-      <header className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-8 lg:py-6">
-        <Link to="/" className="block">
-          <div className="font-display text-2xl font-bold tracking-tight">
-            MYO<span className="text-primary">/</span>LAB
-          </div>
-          <div className="hidden text-[11px] uppercase tracking-[0.25em] text-muted-foreground sm:block">
-            Anatomia · Treino · Simulação
-          </div>
-        </Link>
-        <div className="glass flex gap-1 rounded-full p-1">
-          {(["sim", "explore"] as const).map((k) => (
-            <button
-              type="button"
-              key={k}
-              onClick={() => {
-                setMode(k);
-                if (k === "explore") setSkin(0);
-              }}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all lg:px-5 ${mode === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {k === "explore" ? "Explorar músculos" : "Simulador"}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => (pro ? setPro(false) : setProModal(true))}
-          className={`rounded-full px-4 py-2 text-xs font-semibold tracking-wide ${pro ? "bg-primary text-primary-foreground" : "glass"}`}
-        >
-          {pro ? "PRO ATIVO" : "FREE · ver PRO"}
-        </button>
-      </header>
 
       <div className="relative z-10 flex flex-col gap-4 p-4 lg:contents">
         {/* Left panel */}

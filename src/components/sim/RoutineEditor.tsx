@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   BENCH_ANGLES,
@@ -196,25 +197,25 @@ export function RoutineEditor({
                     type="button"
                     aria-label="Subir"
                     onClick={() => move(idx, -1)}
-                    className="h-6 w-6 rounded-full hover:bg-background"
+                    className="h-7 w-7 rounded-full hover:bg-background"
                   >
-                    ↑
+                    <ChevronUp className="mx-auto h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     aria-label="Descer"
                     onClick={() => move(idx, 1)}
-                    className="h-6 w-6 rounded-full hover:bg-background"
+                    className="h-7 w-7 rounded-full hover:bg-background"
                   >
-                    ↓
+                    <ChevronDown className="mx-auto h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     aria-label="Remover"
                     onClick={() => remove(idx)}
-                    className="h-6 w-6 rounded-full hover:bg-background hover:text-destructive"
+                    className="h-7 w-7 rounded-full hover:bg-background hover:text-destructive"
                   >
-                    ×
+                    <X className="mx-auto h-4 w-4" />
                   </button>
                 </div>
               </div>

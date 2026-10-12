@@ -35,7 +35,7 @@ export function Viewer({
     <Canvas
       shadows={!SMALL}
       dpr={[1, SMALL ? 1.5 : 2]}
-      camera={{ position: [0, 1.0, 3.6], fov: 32 }}
+      camera={{ position: SMALL ? [0, 0.92, 3.7] : [0, 0.82, 4.4], fov: 32 }}
     >
       {captureRef && <Capture apiRef={captureRef} />}
       <ambientLight intensity={0.6} />
@@ -71,7 +71,7 @@ export function Viewer({
       <Body {...props} />
       <ContactShadows position={[0, 0, 0]} opacity={0.35} scale={3} blur={2.4} far={1.5} />
       <OrbitControls
-        target={[0, 0.95, 0]}
+        target={SMALL ? [0, 0.88, 0] : [0, 0.76, 0]}
         enablePan
         screenSpacePanning
         minDistance={0.35}
