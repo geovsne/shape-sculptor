@@ -99,7 +99,7 @@ function Section({
 const STEPS = [
   {
     t: "Crie o avatar",
-    d: "Altura, peso e percentual de gordura. É o ponto de partida do corpo que vai mudar. O corpo feminino chega na v2.",
+    d: "Altura, peso, gordura, idade e tempo de treino. É o ponto de partida do corpo que vai mudar. O corpo feminino chega na v2.",
   },
   {
     t: "Monte a semana",
@@ -112,6 +112,7 @@ const STEPS = [
 ];
 
 const FREE = [
+  "Atlas anatômico completo em português e latim",
   "Avatar 3D com musculatura e pele",
   "Rotina semanal: exercícios, séries, repetições e intensidade",
   "Crescimento por músculo e alertas de overtraining",
@@ -130,7 +131,7 @@ export function Landing() {
     <div className="min-h-screen bg-background font-body text-foreground">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_70%_10%,var(--glow),transparent_55%)]" />
 
-      <header className="sticky top-0 z-20 border-b border-transparent bg-background/70 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-8">
           <div className="font-display text-2xl font-bold tracking-tight">
             MYO<span className="text-primary">/</span>LAB
@@ -199,7 +200,34 @@ export function Landing() {
           </div>
         </section>
 
-        <Section id="como-funciona" eyebrow="Como funciona" title="Três passos.">
+        <Section
+          id="atlas"
+          eyebrow="Atlas anatômico · grátis"
+          title="O corpo inteiro, em 3D, para estudar."
+        >
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              ["1.709", "estruturas: músculos, ossos, ligamentos, nervos, vasos e órgãos"],
+              ["PT · LA", "nome em português e em latim oficial (Terminologia Anatomica, 2019)"],
+              ["7", "camadas para ligar, isolar e girar, com descrição de cada estrutura"],
+            ].map(([n, d]) => (
+              <div key={n} className="rounded-[24px] bg-card p-5">
+                <div className="font-display text-3xl font-bold tracking-tight tabular-nums">
+                  {n}
+                </div>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{d}</p>
+              </div>
+            ))}
+          </div>
+          <Link
+            to="/atlas"
+            className="mt-6 inline-flex rounded-full border px-6 py-3 font-display text-sm font-semibold hover:bg-secondary"
+          >
+            Abrir o Atlas →
+          </Link>
+        </Section>
+
+        <Section id="como-funciona" eyebrow="Simulador · como funciona" title="Três passos.">
           <ol className="grid gap-3 md:grid-cols-3">
             {STEPS.map((s, i) => (
               <li key={s.t} className="flex gap-4 rounded-[24px] bg-card p-5">

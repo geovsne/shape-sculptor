@@ -145,7 +145,9 @@ function LayerMesh({
   );
 }
 
-const HOME = { target: new THREE.Vector3(0, 0.95, 0), cam: new THREE.Vector3(0, 1.0, 3.6) };
+const HOME = SMALL
+  ? { target: new THREE.Vector3(0, 0.88, 0), cam: new THREE.Vector3(0, 0.92, 3.8) }
+  : { target: new THREE.Vector3(0, 0.85, 0), cam: new THREE.Vector3(0, 0.9, 4.1) };
 
 /** glides the camera to frame a box (an isolated structure), or back to the whole body */
 function CameraFocus({ box }: { box: THREE.Box3 | null }) {
@@ -314,8 +316,23 @@ export function Atlas() {
   return (
     <div className="relative min-h-screen w-full bg-background font-body text-foreground lg:h-screen lg:overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
-      <div className="sticky top-0 z-20 h-[58vh] bg-background lg:absolute lg:inset-0 lg:z-auto lg:h-auto lg:bg-transparent">
-        <Canvas dpr={[1, SMALL ? 1.5 : 2]} camera={{ position: [0, 1.0, 3.6], fov: 32 }}>
+      <header className="relative z-30 flex items-center justify-between gap-3 bg-background px-4 py-4 lg:absolute lg:inset-x-0 lg:top-0 lg:bg-transparent lg:px-8 lg:py-6">
+        <Link to="/" className="font-display text-2xl font-bold tracking-tight">
+          MYO<span className="text-primary">/</span>LAB
+          <span className="ml-2 align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Atlas
+          </span>
+        </Link>
+        <Link
+          to="/editor"
+          className="glass rounded-full px-4 py-2 text-xs font-semibold tracking-wide"
+        >
+          Simulador →
+        </Link>
+      </header>
+
+      <div className="sticky top-0 z-20 h-[56vh] border-b bg-background lg:absolute lg:border-0 lg:inset-0 lg:z-auto lg:h-auto lg:bg-transparent">
+        <Canvas dpr={[1, SMALL ? 1.5 : 2]} camera={{ position: HOME.cam.toArray(), fov: 32 }}>
           <ambientLight intensity={0.6} />
           <directionalLight position={[2, 4, 3]} intensity={1.6} />
           <directionalLight position={[-3, 2, -2]} intensity={0.8} color="#cfe3ff" />
@@ -343,7 +360,7 @@ export function Atlas() {
           <CameraFocus box={focusBox} />
           <OrbitControls
             makeDefault
-            target={[0, 0.95, 0]}
+            target={HOME.target.toArray()}
             enablePan
             screenSpacePanning
             minDistance={0.2}
@@ -431,21 +448,6 @@ export function Atlas() {
           </div>
         )}
       </div>
-
-      <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-4 py-4 lg:px-8 lg:py-6">
-        <Link to="/" className="font-display text-2xl font-bold tracking-tight">
-          MYO<span className="text-primary">/</span>LAB
-          <span className="ml-2 align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Atlas
-          </span>
-        </Link>
-        <Link
-          to="/editor"
-          className="glass rounded-full px-4 py-2 text-xs font-semibold tracking-wide"
-        >
-          Simulador →
-        </Link>
-      </header>
 
       <aside className="glass relative z-10 m-4 rounded-[28px] p-5 lg:absolute lg:bottom-6 lg:left-6 lg:top-24 lg:m-0 lg:w-[360px] lg:overflow-y-auto">
         <h2 className="font-display text-2xl font-bold leading-none tracking-tight">
