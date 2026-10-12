@@ -144,5 +144,33 @@
 ],
 "quad_vm": [
 "Vastus medialis muscle"
+],
+"add_magnus": [
+"Adductor magnus"
+],
+"add_short": [
+"Adductor brevis",
+"Adductor longus",
+"Gracilis muscle",
+"Pectineus muscle"
+],
+"hip_flex": [
+"Iliacus muscle",
+"Psoas major",
+"Sartorius muscle"
+],
+"neck_front": [
+"Scalenus anterior muscle",
+"Scalenus medius muscle",
+"Scalenus posterior muscle",
+"Sternocleidomastoid muscle"
+],
+"neck_back": [
+"Splenius capitis muscle"
+],
+"tib_ant": [
+"Extensor digitorum longus",
+"Extensor hallucis longus",
+"Tibialis anterior muscle"
 ]
 }

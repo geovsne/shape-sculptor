@@ -74,6 +74,15 @@ function loadSaved(): Partial<Saved> {
     const s = JSON.parse(raw) as Partial<Saved>;
     // v1 has only the male body: older female saves start over
     if (s.profile?.sex === "f") return {};
+    // older saves may miss newer muscle groups: start them at the body's average development
+    if (s.sim?.dev) {
+      const known = MUSCLE_IDS.filter((m) => typeof s.sim!.dev[m] === "number");
+      const avg = known.length ? known.reduce((a, m) => a + s.sim!.dev[m], 0) / known.length : 0.25;
+      for (const m of MUSCLE_IDS) {
+        if (typeof s.sim.dev[m] !== "number") s.sim.dev[m] = avg;
+        if (s.sim.fatigue && typeof s.sim.fatigue[m] !== "number") s.sim.fatigue[m] = 0;
+      }
+    }
     // older saves may miss newer muscle heads: fill them from their group
     if (s.sim)
       for (const h of HEAD_IDS)

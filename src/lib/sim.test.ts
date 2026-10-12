@@ -150,6 +150,25 @@ describe("cabeças musculares", () => {
     expect(inc.headDev.chest_upper).toBeGreaterThan(inc.headDev.chest_lower);
     expect(dec.headDev.chest_lower).toBeGreaterThan(dec.headDev.chest_upper);
   });
+  it("todo grupo muscular tem ao menos um exercício principal", () => {
+    const orphan = MUSCLE_IDS.filter((m) => !EXERCISES.some((e) => e.primary.includes(m)));
+    expect(orphan).toEqual([]);
+  });
+  it("cadeira adutora cresce os adutores; agachamento sumô, o adutor magno", () => {
+    const add = run(only("adductor"), bulk, 12);
+    expect(add.dev.adductors).toBeGreaterThan(initSim(man).dev.adductors + 0.05);
+    expect(add.dev.quads).toBeLessThanOrEqual(initSim(man).dev.quads + 0.01);
+    expect(gain(add, "add_short")).toBeGreaterThan(gain(add, "add_magnus"));
+    const sumo = run(only("sumoGoblet"), bulk, 12);
+    expect(gain(sumo, "add_magnus")).toBeGreaterThan(gain(sumo, "add_short"));
+  });
+  it("flexores do quadril, pescoço e tibial crescem com os exercícios próprios", () => {
+    const base = initSim(man).dev;
+    expect(run(only("hipFlexCable"), bulk, 12).dev.hipFlexors).toBeGreaterThan(base.hipFlexors);
+    const neck = run(only("neckExt"), bulk, 12);
+    expect(gain(neck, "neck_back")).toBeGreaterThan(gain(neck, "neck_front"));
+    expect(run(only("tibRaise"), bulk, 12).dev.tibialis).toBeGreaterThan(base.tibialis);
+  });
   it("só glúteo: só o glúteo cresce", () => {
     const s = run(
       only("hipThrust"),

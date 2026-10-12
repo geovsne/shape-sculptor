@@ -57,7 +57,8 @@ SEX = sys.argv[3] if len(sys.argv) > 3 else "m"
 WARP = sys.argv[4] if len(sys.argv) > 4 else None  # npz with female warp
 
 GROUPS = ["chest", "frontDelts", "sideDelts", "rearDelts", "traps", "lats", "lowerBack", "abs",
-          "obliques", "biceps", "triceps", "forearms", "glutes", "quads", "hamstrings", "calves"]
+          "obliques", "biceps", "triceps", "forearms", "glutes", "quads", "hamstrings", "calves",
+          "adductors", "hipFlexors", "neck", "tibialis"]
 STATIC, TENDON = 255, 254
 
 FAT_REGIONS = ["abdomen", "lowback", "chest", "glutes", "thighs", "arms", "back", "face", "other"]

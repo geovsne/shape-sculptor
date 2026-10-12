@@ -14,7 +14,11 @@ export type Muscle =
   | "glutes"
   | "quads"
   | "hamstrings"
-  | "calves";
+  | "calves"
+  | "adductors"
+  | "hipFlexors"
+  | "neck"
+  | "tibialis";
 
 /** size = share of total skeletal muscle used to convert development into kg of lean mass */
 export const MUSCLES: Record<
@@ -37,6 +41,10 @@ export const MUSCLES: Record<
   quads: { name: "Quadríceps", region: "Pernas", size: 0.14, lower: true },
   hamstrings: { name: "Posterior de coxa", region: "Pernas", size: 0.08, lower: true },
   calves: { name: "Panturrilha", region: "Pernas", size: 0.04, lower: true },
+  adductors: { name: "Adutores", region: "Pernas", size: 0.07, lower: true },
+  hipFlexors: { name: "Flexores do quadril", region: "Pernas", size: 0.025, lower: true },
+  neck: { name: "Pescoço", region: "Pescoço", size: 0.015, lower: false },
+  tibialis: { name: "Tibial anterior", region: "Pernas", size: 0.012, lower: true },
 };
 export const MUSCLE_IDS = Object.keys(MUSCLES) as Muscle[];
 
@@ -129,6 +137,32 @@ export const HEADS = {
   ham_sm: { name: "Semimembranáceo", short: "Semimembr.", group: "hamstrings", size: 0.3 },
   calf_gastro: { name: "Gastrocnêmio", short: "Gastrocnêmio", group: "calves", size: 0.55 },
   calf_soleus: { name: "Sóleo", short: "Sóleo", group: "calves", size: 0.45 },
+  add_magnus: { name: "Adutor magno", short: "Magno", group: "adductors", size: 0.55 },
+  add_short: {
+    name: "Adutores longo, curto, pectíneo e grácil",
+    short: "Longo e curto",
+    group: "adductors",
+    size: 0.45,
+  },
+  hip_flex: {
+    name: "Iliopsoas e sartório",
+    short: "Iliopsoas",
+    group: "hipFlexors",
+    size: 1,
+  },
+  neck_front: {
+    name: "Esternocleidomastóideo e escalenos",
+    short: "Anterior",
+    group: "neck",
+    size: 0.6,
+  },
+  neck_back: { name: "Esplênio da cabeça", short: "Posterior", group: "neck", size: 0.4 },
+  tib_ant: {
+    name: "Tibial anterior e extensores dos dedos",
+    short: "Tibial",
+    group: "tibialis",
+    size: 1,
+  },
 } as const satisfies Record<string, { name: string; short: string; group: Muscle; size: number }>;
 export type Head = keyof typeof HEADS;
 export const HEAD_IDS = Object.keys(HEADS) as Head[];
@@ -634,9 +668,10 @@ export const EXERCISES: Exercise[] = [
     bodyFrac: 0.35,
     heads: { abs_upper: 1, abs_lower: 0.4 },
   }),
-  ex("legRaise", "Elevação de pernas", "Corporal", ["abs"], ["obliques"], 0.5, {
+  ex("legRaise", "Elevação de pernas", "Corporal", ["abs"], ["obliques", "hipFlexors"], 0.5, {
     bodyFrac: 0.3,
-    heads: { abs_lower: 1, abs_upper: 0.45 },
+    // the iliopsoas lifts the legs; the abs hold the pelvis
+    heads: { abs_lower: 1, abs_upper: 0.45, hip_flex: 1 },
   }),
   ex("woodchop", "Woodchopper", "Cabo", ["obliques"], ["abs"], 0.25, {
     heads: { obl: 1, serratus: 0.4 },
@@ -658,10 +693,10 @@ export const EXERCISES: Exercise[] = [
     "Agachamento livre",
     "Peso livre",
     ["quads", "glutes"],
-    ["hamstrings", "lowerBack", "abs"],
+    ["hamstrings", "lowerBack", "abs", "adductors"],
     1.0,
     {
-      heads: { ...SQUAT_Q, glute_max: 1, glute_med: 0.4 },
+      heads: { ...SQUAT_Q, glute_max: 1, glute_med: 0.4, add_magnus: 0.8, add_short: 0.35 },
       variants: [
         { id: "regular", label: "Base na largura dos ombros", heads: {} },
         {
@@ -672,7 +707,15 @@ export const EXERCISES: Exercise[] = [
         {
           id: "sumo",
           label: "Base aberta (sumô)",
-          heads: { glute_max: 1, glute_med: 0.6, quad_vm: 0.85, quad_vl: 0.75, quad_vi: 0.75 },
+          heads: {
+            glute_max: 1,
+            glute_med: 0.6,
+            quad_vm: 0.85,
+            quad_vl: 0.75,
+            quad_vi: 0.75,
+            add_magnus: 1,
+            add_short: 0.6,
+          },
         },
       ],
     },
@@ -698,50 +741,96 @@ export const EXERCISES: Exercise[] = [
       glute_med: 0.2,
     },
   }),
-  ex("legPress", "Leg press 45°", "Máquina", ["quads", "glutes"], ["hamstrings"], 2.0, {
-    heads: { ...SQUAT_Q, quad_rf: 0.35, glute_max: 0.8, glute_med: 0.3 },
-    variants: [
-      { id: "mid", label: "Pés no meio", heads: {} },
-      {
-        id: "high",
-        label: "Pés altos e abertos",
-        heads: {
-          glute_max: 1,
-          glute_med: 0.5,
-          quad_vl: 0.75,
-          quad_vm: 0.8,
-          quad_vi: 0.75,
-          quad_rf: 0.25,
-          ham_bfl: 0.6,
-          ham_sm: 0.6,
-          ham_st: 0.5,
-        },
+  ex(
+    "legPress",
+    "Leg press 45°",
+    "Máquina",
+    ["quads", "glutes"],
+    ["hamstrings", "adductors"],
+    2.0,
+    {
+      heads: {
+        ...SQUAT_Q,
+        quad_rf: 0.35,
+        glute_max: 0.8,
+        glute_med: 0.3,
+        add_magnus: 0.5,
+        add_short: 0.2,
       },
-      {
-        id: "low",
-        label: "Pés baixos e fechados",
-        heads: {
-          quad_vl: 1,
-          quad_vi: 0.9,
-          quad_vm: 0.8,
-          quad_rf: 0.35,
-          glute_max: 0.5,
-          glute_med: 0.2,
+      variants: [
+        { id: "mid", label: "Pés no meio", heads: {} },
+        {
+          id: "high",
+          label: "Pés altos e abertos",
+          heads: {
+            glute_max: 1,
+            glute_med: 0.5,
+            quad_vl: 0.75,
+            quad_vm: 0.8,
+            quad_vi: 0.75,
+            quad_rf: 0.25,
+            ham_bfl: 0.6,
+            ham_sm: 0.6,
+            ham_st: 0.5,
+          },
         },
+        {
+          id: "low",
+          label: "Pés baixos e fechados",
+          heads: {
+            quad_vl: 1,
+            quad_vi: 0.9,
+            quad_vm: 0.8,
+            quad_rf: 0.35,
+            glute_max: 0.5,
+            glute_med: 0.2,
+          },
+        },
+      ],
+    },
+  ),
+  ex(
+    "lunge",
+    "Afundo com halteres",
+    "Peso livre",
+    ["quads", "glutes"],
+    ["hamstrings", "adductors"],
+    0.3,
+    {
+      unit: "kg cada",
+      heads: {
+        ...SQUAT_Q,
+        quad_rf: 0.6,
+        glute_max: 1,
+        glute_med: 0.7,
+        add_magnus: 0.7,
+        add_short: 0.3,
       },
-    ],
-  }),
-  ex("lunge", "Afundo com halteres", "Peso livre", ["quads", "glutes"], ["hamstrings"], 0.3, {
-    unit: "kg cada",
-    heads: { ...SQUAT_Q, quad_rf: 0.6, glute_max: 1, glute_med: 0.7 },
-  }),
+    },
+  ),
   ex("legExt", "Cadeira extensora", "Máquina", ["quads"], [], 0.6, {
     heads: { quad_rf: 1, quad_vl: 0.9, quad_vm: 0.9, quad_vi: 0.9 },
   }),
-  ex("rdl", "Stiff com barra", "Peso livre", ["hamstrings", "glutes"], ["lowerBack"], 0.9, {
-    // hip extension with straight knees: semimembranosus and long biceps femoris
-    heads: { ...HINGE, ham_sm: 1, ham_bfl: 0.9, ham_st: 0.75, ham_bfs: 0.15 },
-  }),
+  ex(
+    "rdl",
+    "Stiff com barra",
+    "Peso livre",
+    ["hamstrings", "glutes"],
+    ["lowerBack", "adductors"],
+    0.9,
+    {
+      // hip extension with straight knees: semimembranosus, long biceps femoris and adductor magnus
+      heads: {
+        ...HINGE,
+        ham_sm: 1,
+        ham_bfl: 0.9,
+        ham_st: 0.75,
+        ham_bfs: 0.15,
+        add_magnus: 0.6,
+        add_short: 0.1,
+      },
+    },
+  ),
   ex("seatedCurl", "Cadeira flexora", "Máquina", ["hamstrings"], [], 0.45, {
     // hip flexed = long head stretched; grows the long biceps femoris most
     heads: { ham_bfl: 1, ham_st: 0.9, ham_sm: 0.85, ham_bfs: 0.85 },
@@ -781,6 +870,64 @@ export const EXERCISES: Exercise[] = [
   }),
   ex("seatedCalf", "Panturrilha sentado", "Máquina", ["calves"], [], 0.6, {
     heads: { calf_soleus: 1, calf_gastro: 0.25 },
+  }),
+  // adductors
+  ex("adductor", "Cadeira adutora", "Máquina", ["adductors"], [], 0.7, {
+    heads: { add_short: 1, add_magnus: 0.7 },
+  }),
+  ex("cableAdduction", "Adução de quadril no cabo", "Cabo", ["adductors"], ["hipFlexors"], 0.12, {
+    unit: "kg (uma perna)",
+    heads: { add_short: 1, add_magnus: 0.55, hip_flex: 0.3 },
+  }),
+  ex("copenhagen", "Prancha de Copenhague", "Corporal", ["adductors"], ["obliques"], 0.4, {
+    bodyFrac: 0.35,
+    heads: { add_short: 1, add_magnus: 0.75, obl: 0.7, serratus: 0.2 },
+  }),
+  ex(
+    "sumoGoblet",
+    "Agachamento sumô com halter",
+    "Peso livre",
+    ["adductors", "glutes"],
+    ["quads"],
+    0.45,
+    {
+      // wide stance and deep hips: adductor magnus extends the hip next to the glutes
+      heads: {
+        add_magnus: 1,
+        add_short: 0.6,
+        glute_max: 0.9,
+        glute_med: 0.5,
+        quad_vm: 0.8,
+        quad_vl: 0.65,
+        quad_vi: 0.65,
+        quad_rf: 0.25,
+      },
+    },
+  ),
+  // hip flexors
+  ex("hipFlexCable", "Flexão de quadril no cabo", "Cabo", ["hipFlexors"], ["quads", "abs"], 0.12, {
+    unit: "kg (uma perna)",
+    heads: {
+      hip_flex: 1,
+      quad_rf: 0.7,
+      quad_vl: 0,
+      quad_vm: 0,
+      quad_vi: 0,
+      abs_lower: 0.4,
+      abs_upper: 0.1,
+    },
+  }),
+  // neck
+  ex("neckFlex", "Flexão de pescoço com anilha", "Peso livre", ["neck"], [], 0.08, {
+    heads: { neck_front: 1, neck_back: 0 },
+  }),
+  ex("neckExt", "Extensão de pescoço com anilha", "Peso livre", ["neck"], ["traps"], 0.12, {
+    heads: { neck_back: 1, neck_front: 0, traps_upper: 0.5, traps_mid: 0, traps_lower: 0 },
+  }),
+  // shin
+  ex("tibRaise", "Elevação da ponta do pé (tibial)", "Corporal", ["tibialis"], [], 0.15, {
+    bodyFrac: 0.15,
+    heads: { tib_ant: 1 },
   }),
 ];
 export const EX_BY_ID = Object.fromEntries(EXERCISES.map((e) => [e.id, e])) as Record<
