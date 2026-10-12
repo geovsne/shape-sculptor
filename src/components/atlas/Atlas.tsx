@@ -157,6 +157,33 @@ export function Atlas() {
   const [isolate, setIsolate] = useState(false);
   const [see, setSee] = useState(false);
   const [q, setQ] = useState("");
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set(["fascia"]));
+  const [catalog, setCatalog] = useState<Partial<Record<SystemId, AtlasPart[]>>>({});
+
+  // part names of every layer (small headers) so search reaches all structures
+  useEffect(() => {
+    for (const s of SYSTEMS)
+      fetch(`/atlas/atlas-${s}.json`)
+        .then((r) => r.json())
+        .then((h: { parts: AtlasPart[] }) => setCatalog((c) => ({ ...c, [s]: h.parts })))
+        .catch(() => {});
+  }, []);
+
+  const toggleSub = (id: string) =>
+    setHidden((h) => {
+      const n = new Set(h);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const applyPreset = (id: string) => {
+    const p = PRESETS.find((x) => x.id === id)!;
+    setOn(Object.fromEntries(SYSTEMS.map((s) => [s, p.on.includes(s)])) as Record<SystemId, boolean>);
+    setHidden(new Set(p.hidden));
+    setPick(null);
+    setIsolate(false);
+  };
 
   // load the layers that are switched on
   useEffect(() => {
@@ -174,22 +201,25 @@ export function Atlas() {
   const inner = on.nerves || on.vessels || on.organs;
   const ghostOf = (s: SystemId) => (see || inner) && (s === "skin" || s === "muscles");
 
-  const part: AtlasPart | null = pick ? (layers[pick.system]?.parts[pick.index] ?? null) : null;
+  const part: AtlasPart | null = pick
+    ? (layers[pick.system]?.parts[pick.index] ?? catalog[pick.system]?.[pick.index] ?? null)
+    : null;
 
   const results = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (term.length < 2) return [];
+    const terms = searchTerms(q);
+    if (!terms.length) return [];
     const out: { system: SystemId; index: number; p: AtlasPart }[] = [];
     for (const s of SYSTEMS) {
-      const ly = layers[s];
-      if (!ly) continue;
-      ly.parts.forEach((p, i) => {
-        if (out.length < 30 && p.name.toLowerCase().includes(term))
-          out.push({ system: s, index: i, p });
+      const parts = layers[s]?.parts ?? catalog[s];
+      parts?.forEach((p, i) => {
+        const n = p.name.toLowerCase();
+        if (out.length < 60 && terms.some((t) => n.includes(t))) out.push({ system: s, index: i, p });
       });
     }
     return out;
-  }, [q, layers]);
+  }, [q, layers, catalog]);
+
+  const total = SYSTEMS.reduce((a, s) => a + (catalog[s]?.length ?? 0), 0);
 
   return (
     <div className="relative min-h-screen w-full bg-background font-body text-foreground lg:h-screen lg:overflow-hidden">
@@ -211,6 +241,7 @@ export function Atlas() {
                 picked={pick?.system === s ? pick.index : null}
                 isolate={isolate}
                 ghost={!isolate && ghostOf(s)}
+                hidden={hidden}
                 onPick={(index, through) => {
                   if (through) return;
                   setPick(index == null ? null : { system: s, index });
