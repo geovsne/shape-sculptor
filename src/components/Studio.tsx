@@ -33,7 +33,7 @@ import {
   type SimState,
 } from "@/lib/sim";
 import { RoutineEditor } from "./sim/RoutineEditor";
-import { DietPanel, HormonePanel } from "./sim/ProPanels";
+import { DietPanel } from "./sim/ProPanels";
 import { StatusPanel } from "./sim/StatusPanel";
 import { MiniMap } from "./sim/MiniMap";
 import { Pill, RangeField } from "./sim/ui";
@@ -42,7 +42,7 @@ const EQUIPS: (Equip | "Todos")[] = ["Todos", "Máquina", "Peso livre", "Cabo", 
 const lerp = (a: number[], b: number[], t: number) =>
   a.map((v, i) => Math.round(v + ((b[i] ?? v) - v) * t));
 const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
-type Tab = "rotina" | "dieta" | "hormonios";
+type Tab = "rotina" | "dieta";
 
 /* progress is kept in this browser so a reload doesn't lose the avatar */
 const SAVE_KEY = "myolab:save:v1";
@@ -149,7 +149,7 @@ export function Studio() {
     setBefore(null);
   };
 
-  const opts: Options = { pro, nutrition, hormone };
+  const opts: Options = { pro, nutrition, hormone: "nenhum" };
   const ex = exId ? EX_BY_ID[exId] : null;
   const list = EXERCISES.filter(
     (e) =>
@@ -507,7 +507,6 @@ export function Studio() {
                     [
                       ["rotina", "Rotina", false],
                       ["dieta", "Dieta", true],
-                      ["hormonios", "Hormônios", true],
                     ] as const
                   ).map(([k, label, isPro]) => (
                     <button
@@ -558,15 +557,6 @@ export function Studio() {
                     pro={pro}
                     nutrition={nutrition}
                     setNutrition={setNutrition}
-                    onUnlock={() => setProModal(true)}
-                  />
-                )}
-                {tab === "hormonios" && (
-                  <HormonePanel
-                    sim={sim}
-                    pro={pro}
-                    level={hormone}
-                    setLevel={setHormone}
                     onUnlock={() => setProModal(true)}
                   />
                 )}
@@ -816,10 +806,6 @@ export function Studio() {
               <li>
                 <strong className="text-foreground">Dieta</strong>: calorias e proteína que fazem o
                 avatar ganhar músculo, secar ou perder massa.
-              </li>
-              <li>
-                <strong className="text-foreground">Hormônios</strong>: efeito no corpo, na
-                recuperação e na energia, com efeitos colaterais.
               </li>
             </ul>
             <button

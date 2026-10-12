@@ -123,7 +123,6 @@ const PRO = [
   "Carga em kg com 1RM estimado",
   "Pegada, ângulo do banco e amplitude",
   "Dieta com calorias, proteína, carboidrato e gordura",
-  "Hormônios com efeitos colaterais",
 ];
 
 export function Landing() {
@@ -286,8 +285,8 @@ export function Landing() {
             </Link>
             <p className="mt-8 max-w-3xl text-xs leading-relaxed text-muted-foreground">
               O MYO/LAB é uma simulação educativa com modelos simplificados. Não é prescrição de
-              treino, dieta ou tratamento. Hormônios só devem ser usados com indicação e
-              acompanhamento médico; o simulador não informa doses.
+              treino, dieta ou tratamento. Procure um profissional de educação física e um
+              nutricionista para montar o seu plano.
             </p>
             <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted-foreground">
               Modelo anatômico: Z-Anatomy (CC BY-SA 4.0), baseado em BodyParts3D © The Database
