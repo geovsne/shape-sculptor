@@ -6,6 +6,7 @@ import { StudioEnvironment } from "../anatomy/StudioEnvironment";
 import * as THREE from "three";
 import { createMuscleMaterial, TENDON_COLOR } from "../anatomy/muscleMaterial";
 import { buildMuscleDetail } from "./muscleDetail";
+import { PRESETS, SUBS, SUB_COLOR, classify, searchTerms } from "./atlasFilters";
 import {
   CAT_COLOR,
   SIDE_LABEL,
@@ -28,15 +29,18 @@ function LayerMesh({
   picked,
   isolate,
   ghost,
+  hidden,
   onPick,
 }: {
   layer: AtlasLayer;
   picked: number | null;
   isolate: boolean;
   ghost: boolean;
+  hidden: Set<string>;
   onPick: (index: number | null, through: boolean) => void;
 }) {
   const detail = useMemo(() => layer.system === "muscles" ? buildMuscleDetail(layer) : null, [layer]);
+  const subs = useMemo(() => layer.parts.map((p) => classify(layer.system, p)), [layer]);
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(layer.pos, 3));
@@ -58,27 +62,45 @@ function LayerMesh({
     const arr = col.array as Float32Array;
     const c = new THREE.Color();
     layer.parts.forEach((p, k) => {
-      c.set(CAT_COLOR[p.cat] ?? CAT_COLOR[layer.system] ?? "#cccccc");
+      c.set(SUB_COLOR[subs[k]!] ?? CAT_COLOR[p.cat] ?? CAT_COLOR[layer.system] ?? "#cccccc");
       if (k === picked) c.copy(HIGHLIGHT);
       const base = c.clone();
       for (let i = p.v0; i < p.v0 + p.nv; i++) {
         c.copy(base);
-        if (detail) {
+        if (detail && k !== picked && (subs[k] === "superficial" || subs[k] === "deep")) {
           const end = detail.end[i] ?? 0;
-          if (/tendon|aponeurosis/i.test(p.base) && k !== picked) c.copy(TENDON_COLOR);
+          if (/tendon|aponeurosis/i.test(p.base)) c.copy(TENDON_COLOR);
           else c.lerp(TENDON_COLOR, Math.min(1, Math.max(0, (end - 0.82) / 0.16)) * 0.85);
         }
         c.toArray(arr, i * 3);
       }
     });
     col.needsUpdate = true;
-  }, [geo, layer, picked, detail]);
+  }, [geo, layer, picked, detail, subs]);
 
+  // visible triangles: isolated part, or every part whose sub-category is switched on
   useEffect(() => {
     const p = isolate && picked != null ? layer.parts[picked] : null;
-    if (p) geo.setDrawRange(p.t0 * 3, p.nt * 3);
-    else geo.setDrawRange(0, Infinity);
-  }, [geo, layer, picked, isolate]);
+    if (p) {
+      geo.setIndex(new THREE.BufferAttribute(layer.idx, 1));
+      geo.setDrawRange(p.t0 * 3, p.nt * 3);
+      return;
+    }
+    geo.setDrawRange(0, Infinity);
+    if (hidden.size === 0) {
+      geo.setIndex(new THREE.BufferAttribute(layer.idx, 1));
+      return;
+    }
+    const keep = layer.parts.filter((q, k) => k === picked || !hidden.has(subs[k]!));
+    const total = keep.reduce((a, q) => a + q.nt * 3, 0);
+    const out = new Uint32Array(total);
+    let o = 0;
+    for (const q of keep) {
+      out.set(layer.idx.subarray(q.t0 * 3, (q.t0 + q.nt) * 3), o);
+      o += q.nt * 3;
+    }
+    geo.setIndex(new THREE.BufferAttribute(out, 1));
+  }, [geo, layer, picked, isolate, hidden, subs]);
 
   const mat = useMemo(
     () => {
