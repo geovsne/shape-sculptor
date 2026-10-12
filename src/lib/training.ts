@@ -830,6 +830,22 @@ export function headEmphasis(e: Exercise, h: Head, variant?: string): number {
 }
 
 export type Sex = "m" | "f";
-export type Profile = { sex: Sex; height: number; weight: number; bf: number };
+export type Experience = "novo" | "ate1" | "1a3" | "3mais";
+export const EXPERIENCES: Record<Experience, { label: string; hint: string }> = {
+  novo: { label: "Começando", hint: "nunca treinei ou menos de 6 meses" },
+  ate1: { label: "6 meses a 1 ano", hint: "treino com alguma regularidade" },
+  "1a3": { label: "1 a 3 anos", hint: "treino há anos, com constância" },
+  "3mais": { label: "Mais de 3 anos", hint: "treino consistente há muito tempo" },
+};
+export const EXPERIENCE_IDS = Object.keys(EXPERIENCES) as Experience[];
+/** age and training experience are optional so older saves still load (30 years, 6 m to 1 year) */
+export type Profile = {
+  sex: Sex;
+  height: number;
+  weight: number;
+  bf: number;
+  age?: number;
+  exp?: Experience;
+};
 export const DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 export const DAYS_FULL = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];

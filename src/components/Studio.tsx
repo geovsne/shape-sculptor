@@ -16,6 +16,8 @@ import {
   type Equip,
   type Muscle,
   type Profile,
+  EXPERIENCES,
+  EXPERIENCE_IDS,
 } from "@/lib/training";
 import {
   PRESETS,
@@ -54,7 +56,14 @@ type Saved = {
   /** front snapshot of the avatar at week 0 (small JPEG data URL) */
   before?: string | null;
 };
-const DEFAULT_PROFILE: Profile = { sex: "m", height: 178, weight: 78, bf: 16 };
+const DEFAULT_PROFILE: Profile = {
+  sex: "m",
+  height: 178,
+  weight: 78,
+  bf: 16,
+  age: 30,
+  exp: "ate1",
+};
 const DEFAULT_NUTRITION: Nutrition = macrosFor(2600, 78);
 function loadSaved(): Partial<Saved> {
   try {
@@ -398,6 +407,8 @@ export function Studio() {
                         height: s === "m" ? 178 : 165,
                         weight: s === "m" ? 78 : 60,
                         bf: s === "m" ? 16 : 24,
+                        age: profile.age ?? 30,
+                        exp: profile.exp ?? "ate1",
                       })
                     }
                     className={`rounded-2xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-45 ${profile.sex === s ? "border-foreground bg-foreground text-background" : "hover:border-foreground/40"}`}
@@ -437,6 +448,47 @@ export function Studio() {
                 unit="%"
                 onChange={(v) => setProfile({ ...profile, bf: v })}
               />
+              <RangeField
+                label="Idade"
+                value={profile.age ?? 30}
+                min={16}
+                max={80}
+                unit=" anos"
+                onChange={(v) => setProfile({ ...profile, age: v })}
+              />
+              <div>
+                <div className="text-xs font-medium">Tempo de treino</div>
+                <div
+                  className="mt-2 grid grid-cols-2 gap-1.5"
+                  role="radiogroup"
+                  aria-label="Tempo de treino"
+                >
+                  {EXPERIENCE_IDS.map((k) => {
+                    const on = (profile.exp ?? "ate1") === k;
+                    return (
+                      <button
+                        type="button"
+                        key={k}
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setProfile({ ...profile, exp: k })}
+                        className={`rounded-xl border px-3 py-2 text-left transition-all ${on ? "border-foreground bg-foreground text-background" : "hover:border-foreground/40"}`}
+                      >
+                        <div className="text-xs font-semibold">{EXPERIENCES[k].label}</div>
+                        <div
+                          className={`text-[10px] ${on ? "opacity-70" : "text-muted-foreground"}`}
+                        >
+                          {EXPERIENCES[k].hint}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[10px] text-muted-foreground">
+                  Quem treina há mais tempo é mais forte para o mesmo corpo, aguenta mais volume e
+                  tem tendões mais preparados. A idade muda o gasto calórico e a recuperação.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={createAvatar}

@@ -6,6 +6,7 @@ import {
   TENDON_IDS,
   TENDON_OF,
   type Exercise,
+  type Experience,
   type Muscle,
   type Profile,
   type Sex,
@@ -443,6 +444,34 @@ export const REF_FFMI = { m: 20, f: 16.5 } as const;
 /** fat mass index that the 3D model was sculpted at (kg/m²) */
 export const REF_FMI = { m: 2.9, f: 5.3 } as const;
 
+/**
+ * How age and training experience change the body's response. Trained people are stronger for the
+ * same muscle (technique, nervous system), tolerate more work and have conditioned tendons; recovery
+ * and gain slow down with age, and tendons get less tolerant after about 35.
+ */
+const EXP_FX: Record<Experience, { strength: number; cap: number; tendon: number; gain: number }> =
+  {
+    novo: { strength: 0.85, cap: 0.85, tendon: 0.8, gain: 1.15 },
+    ate1: { strength: 1, cap: 1, tendon: 1, gain: 1.05 },
+    "1a3": { strength: 1.12, cap: 1.2, tendon: 1.2, gain: 1 },
+    "3mais": { strength: 1.2, cap: 1.35, tendon: 1.35, gain: 0.95 },
+  };
+export function traits(p: Profile) {
+  const age = p.age ?? 30;
+  const e = EXP_FX[p.exp ?? "ate1"];
+  const rec = age <= 30 ? 1 : age <= 40 ? 0.96 : age <= 50 ? 0.92 : age <= 60 ? 0.86 : 0.8;
+  const gain = age <= 40 ? 1 : age <= 50 ? 0.95 : age <= 60 ? 0.9 : 0.82;
+  const tendonAge = 1 / (1 + Math.max(0, age - 35) * 0.015);
+  return {
+    age,
+    strength: e.strength,
+    cap: e.cap * rec,
+    tendon: e.tendon * tendonAge,
+    gain: e.gain * gain,
+    rec,
+  };
+}
+
 /** starting development from lean mass per height: heavier at the same BF = more muscle */
 export function baseDevFor(p: Profile) {
   const h2 = (p.height / 100) ** 2;
@@ -485,7 +514,7 @@ export function oneRepMax(e: Exercise, s: SimState): number {
   const sexF = s.profile.sex === "f" ? (lower ? 0.75 : 0.55) : 1;
   const d = e.primary.reduce((a, m) => a + s.dev[m], 0) / e.primary.length;
   const strength = 0.6 + 1.6 * d;
-  return e.ratio * s.leanKg * 1.19 * sexF * strength;
+  return e.ratio * s.leanKg * 1.19 * sexF * strength * traits(s.profile).strength;
 }
 
 export type LoadInfo = {
@@ -558,7 +587,10 @@ function perSet(item: PlanItem, li: LoadInfo) {
 
 export function tdee(profile: Profile, plan: Plan): number {
   const bmr =
-    10 * profile.weight + 6.25 * profile.height - 5 * 30 + (profile.sex === "m" ? 5 : -161);
+    10 * profile.weight +
+    6.25 * profile.height -
+    5 * (profile.age ?? 30) +
+    (profile.sex === "m" ? 5 : -161);
   const sets = plan.flat().reduce((a, i) => a + i.sets, 0);
   return Math.round(bmr * 1.35 + (sets * 7) / 7);
 }
@@ -695,7 +727,7 @@ export function analyzePlan(plan: Plan, s: SimState, o: Options) {
     });
 
   const recMul = recoveryMul(s, o, restDays, plan);
-  const cap = Math.round(165 * recMul);
+  const cap = Math.round(165 * recMul * (traits(s.profile).cap / traits(s.profile).rec));
   if (systemic > cap * 1.3)
     alerts.push({
       level: "danger",
@@ -780,7 +812,8 @@ function recoveryMul(s: SimState, o: Options, restDays: number, plan: Plan) {
     h.rec *
     (restDays === 0 ? 0.88 : 1) *
     (s.overreach > 0.8 ? 0.8 : 1) *
-    (s.hormone.postWeeks > 0 ? 0.85 : 1)
+    (s.hormone.postWeeks > 0 ? 0.85 : 1) *
+    traits(s.profile).rec
   );
 }
 
@@ -814,6 +847,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
     weeksOn = 0;
   } else postWeeks = Math.max(0, postWeeks - 1);
   const H = HFX[level];
+  const TR = traits(s.profile);
   const post = postWeeks > 0 && level === "nenhum";
 
   /* energy and recovery */
@@ -942,7 +976,13 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
       const L = sLoad[m]!;
       const p = Math.min(
         0.9,
-        0.0001 * L * Math.exp(F[m] / 5) * (L > 12 ? 1 + (L - 12) * 0.15 : 1) * sysRisk * H.strain,
+        ((0.0001 *
+          L *
+          Math.exp(F[m] / (5 * TR.cap)) *
+          (L > 12 * TR.cap ? 1 + (L - 12 * TR.cap) * 0.15 : 1)) /
+          TR.cap) *
+          sysRisk *
+          H.strain,
       );
       F[m] += L;
       systemic += L;
@@ -965,7 +1005,10 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
       const h = tHeavy[t]!;
       T[t] += h.load;
       const loadF = h.pct > 0.9 ? 1 + (h.pct - 0.9) * 30 : 1;
-      let p = 0.00015 * h.load * Math.exp(T[t] / 8) * loadF * sysRisk * H.tendon;
+      let p =
+        ((0.00015 * h.load * Math.exp(T[t] / (8 * TR.tendon)) * loadF) / TR.tendon) *
+        sysRisk *
+        H.tendon;
       if (h.impossibleSets) p = Math.max(p, 1 - Math.pow(0.8, h.impossibleSets));
       if (TENDONS[t].muscles.some(isInjured)) continue;
       if (rng() < Math.min(0.9, p)) {
@@ -976,7 +1019,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
         else addInjury({ type: "tendon", t }, "Ruptura completa de tendão (cirurgia)", 12, true, d);
       }
     }
-    for (const m of MUSCLE_IDS) F[m] = Math.max(0, F[m] - 4.5 * recMul);
+    for (const m of MUSCLE_IDS) F[m] = Math.max(0, F[m] - 4.5 * recMul * (TR.cap / TR.rec));
     for (const t of TENDON_IDS) T[t] = Math.max(0, T[t] - 1.5 * tendonRec);
   }
 
@@ -986,7 +1029,14 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
     const st = hstim[h];
     const x = Math.min(st, 20) + Math.max(0, st - 20) * 0.3;
     let g =
-      0.035 * (1 - Math.exp(-x / 10)) * Math.pow(1 - hdev[h], 1.5) * eMul * pMul * H.gain * sysStim;
+      0.035 *
+      (1 - Math.exp(-x / 10)) *
+      Math.pow(1 - hdev[h], 1.5) *
+      eMul *
+      pMul *
+      H.gain *
+      sysStim *
+      TR.gain;
     g += H.baseline * (1 - hdev[h]);
     if (st === 0) g -= 0.004;
     if (r < 0.8) g -= 0.006 * ((0.8 - r) / 0.2 + 0.5);
@@ -1024,7 +1074,7 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
   };
 
   /* systemic fatigue / overtraining */
-  const cap = 165 * recMul;
+  const cap = 165 * recMul * (TR.cap / TR.rec);
   const overreach = clamp(
     s.overreach * (systemic < cap * 0.7 ? 0.3 : 0.6) + Math.max(0, (systemic - cap) / cap),
     0,
