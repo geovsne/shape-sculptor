@@ -120,7 +120,9 @@ export function classify(system: SystemId, p: AtlasPart): string {
       return g === "hairs" || has(n, "hair", "eyebrow", "eyelash") ? "hair" : "skin";
     case "muscles":
       if (has(n, "bursa") || has(g, "bursae")) return "bursa";
-      if (has(n, "fascia", "aponeurosis") || has(g, "fasci")) return "fascia";
+      // "tensor fasciae latae" is a muscle, not a fascia
+      if ((has(n, "fascia", "aponeurosis") || has(g, "fasci")) && !has(n, "tensor", "muscle"))
+        return "fascia";
       if (has(n, "tendon", "sheath", "retinacul") || has(g, "sheath")) return "tendon";
       return DEEP.some((w) => n.includes(w) || g.includes(w)) ? "deep" : "superficial";
     case "bones":

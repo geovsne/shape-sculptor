@@ -84,29 +84,48 @@ function LayerMesh({
     col.needsUpdate = true;
   }, [geo, layer, picked, detail, subs]);
 
+  // fasciae wrap the muscles almost on their surface: drawn opaque they flicker through each other,
+  // so they get their own see-through mesh sharing the same vertices
+  const fasciaGeo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    for (const k of ["position", "normal", "color"]) g.setAttribute(k, geo.getAttribute(k));
+    g.boundingSphere = geo.boundingSphere;
+    return g;
+  }, [geo]);
+  useEffect(() => () => fasciaGeo.dispose(), [fasciaGeo]);
+  const [fasciaShown, setFasciaShown] = useState(false);
+
   // visible triangles: isolated part, or every part whose sub-category is switched on
   useEffect(() => {
     const p = isolate && picked != null ? layer.parts[picked] : null;
     if (p) {
       geo.setIndex(new THREE.BufferAttribute(layer.idx, 1));
       geo.setDrawRange(p.t0 * 3, p.nt * 3);
+      setFasciaShown(false);
       return;
     }
     geo.setDrawRange(0, Infinity);
-    if (hidden.size === 0) {
+    const pick = (keep: (k: number) => boolean) => {
+      const parts = layer.parts.filter((_, k) => keep(k));
+      const out = new Uint32Array(parts.reduce((a, q) => a + q.nt * 3, 0));
+      let o = 0;
+      for (const q of parts) {
+        out.set(layer.idx.subarray(q.t0 * 3, (q.t0 + q.nt) * 3), o);
+        o += q.nt * 3;
+      }
+      return new THREE.BufferAttribute(out, 1);
+    };
+    const hasFascia = subs.includes("fascia");
+    if (hidden.size === 0 && !hasFascia) {
       geo.setIndex(new THREE.BufferAttribute(layer.idx, 1));
+      setFasciaShown(false);
       return;
     }
-    const keep = layer.parts.filter((q, k) => k === picked || !hidden.has(subs[k]!));
-    const total = keep.reduce((a, q) => a + q.nt * 3, 0);
-    const out = new Uint32Array(total);
-    let o = 0;
-    for (const q of keep) {
-      out.set(layer.idx.subarray(q.t0 * 3, (q.t0 + q.nt) * 3), o);
-      o += q.nt * 3;
-    }
-    geo.setIndex(new THREE.BufferAttribute(out, 1));
-  }, [geo, layer, picked, isolate, hidden, subs]);
+    geo.setIndex(pick((k) => subs[k] !== "fascia" && (k === picked || !hidden.has(subs[k]!))));
+    const showFascia = hasFascia && !hidden.has("fascia");
+    if (showFascia) fasciaGeo.setIndex(pick((k) => subs[k] === "fascia"));
+    setFasciaShown(showFascia);
+  }, [geo, fasciaGeo, layer, picked, isolate, hidden, subs]);
 
   const mat = useMemo(() => {
     const material =
@@ -129,20 +148,42 @@ function LayerMesh({
     mat.needsUpdate = true;
   }, [mat, ghost, layer.system]);
   useEffect(() => () => mat.dispose(), [mat]);
+  const fasciaMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.55,
+        metalness: 0,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        // pulled slightly towards the camera so it always lies on top of the muscle it wraps
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      }),
+    [],
+  );
+  useEffect(() => {
+    fasciaMat.opacity = ghost ? 0.12 : 0.42;
+    fasciaMat.needsUpdate = true;
+  }, [fasciaMat, ghost]);
+  useEffect(() => () => fasciaMat.dispose(), [fasciaMat]);
 
+  const click = (e: ThreeEvent<MouseEvent>) => {
+    if (e.delta > 6) return; // a drag, not a tap
+    if (ghost) return onPick(null, true); // see-through layers let the tap pass
+    e.stopPropagation();
+    const f = e.face;
+    onPick(f ? (layer.part[f.a] ?? null) : null, false);
+  };
   return (
-    <mesh
-      geometry={geo}
-      material={mat}
-      renderOrder={ghost ? 2 : 1}
-      onClick={(e: ThreeEvent<MouseEvent>) => {
-        if (e.delta > 6) return; // a drag, not a tap
-        if (ghost) return onPick(null, true); // see-through layers let the tap pass
-        e.stopPropagation();
-        const f = e.face;
-        onPick(f ? (layer.part[f.a] ?? null) : null, false);
-      }}
-    />
+    <>
+      <mesh geometry={geo} material={mat} renderOrder={ghost ? 2 : 1} onClick={click} />
+      {fasciaShown && (
+        <mesh geometry={fasciaGeo} material={fasciaMat} renderOrder={3} onClick={click} />
+      )}
+    </>
   );
 }
 
@@ -325,10 +366,16 @@ export function Atlas() {
           </span>
         </Link>
         <nav className="flex gap-1.5">
-          <Link to="/raio-x" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
+          <Link
+            to="/raio-x"
+            className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold"
+          >
             Raio-X
           </Link>
-          <Link to="/editor" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
+          <Link
+            to="/editor"
+            className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold"
+          >
             Simulador
           </Link>
           <FeedbackButton screen="atlas" />
