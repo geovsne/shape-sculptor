@@ -12,7 +12,6 @@ import {
   SIDE_LABEL,
   SYSTEMS,
   SYSTEM_LABEL,
-  TERMS_READY,
   loadLayer,
   loadTerms,
   type AtlasLayer,
@@ -535,7 +534,7 @@ export function Atlas() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar estrutura (ex.: fígado, biceps, femur)"
+          placeholder="Buscar estrutura (ex.: fígado, bíceps, isquiático)"
           className="mt-4 w-full rounded-full bg-secondary px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
         />
         {results.length > 0 && (
@@ -573,15 +572,14 @@ export function Atlas() {
         )}
         {q.trim().length >= 2 && results.length === 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Nada encontrado. Tente o nome em inglês anatômico (ex.: liver, femur, sciatic).
+            Nada encontrado. Tente outro nome, em português, latim ou inglês.
           </p>
         )}
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
         <p className="mt-6 text-[10px] leading-relaxed text-muted-foreground">
-          Em português, com latim da Terminologia Anatomica (FIPAT, 2019) e descrição:{" "}
-          {TERMS_READY.map((s) => SYSTEM_LABEL[s].toLowerCase()).join(", ")}. Os demais sistemas
-          ainda em inglês anatômico; português e quiz chegam em breve. Modelos: Z-Anatomy (CC BY-SA
-          4.0), baseado em BodyParts3D.
+          Nomes em português, com latim e código da Terminologia Anatomica 2ª ed. (FIPAT, 2019).
+          Descrições baseadas na Wikipédia e no Feneis (CC BY-SA). Modelos: Z-Anatomy (CC BY-SA
+          4.0), baseado em BodyParts3D. Quiz em breve.
         </p>
       </aside>
     </div>
