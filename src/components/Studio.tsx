@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { composeShare, shareOrDownload, shrinkSnapshot } from "@/lib/share";
+import { FeedbackButton } from "@/components/feedback/Feedback";
 import { Link } from "@tanstack/react-router";
 import { Viewer, type CaptureFn } from "./anatomy/Viewer";
 import {
@@ -174,7 +175,7 @@ export function Studio() {
   const analysis = useMemo(
     () => analyzePlan(plan, preview, opts),
     [plan, preview, pro, nutrition, hormone],
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // PRO "Antes / Agora": show the week-0 body of this avatar
   const [showBefore, setShowBefore] = useState(false);
@@ -274,13 +275,16 @@ export function Studio() {
             Raio-X do exercício
           </Link>
         </div>
-        <button
-          type="button"
-          onClick={() => (pro ? setPro(false) : setProModal(true))}
-          className={`order-2 rounded-full px-4 py-2 text-xs font-semibold tracking-wide lg:order-3 ${pro ? "bg-primary text-primary-foreground" : "glass"}`}
-        >
-          {pro ? "PRO ATIVO" : "FREE · ver PRO"}
-        </button>
+        <div className="order-2 flex items-center gap-1.5 lg:order-3">
+          <FeedbackButton screen="simulador" />
+          <button
+            type="button"
+            onClick={() => (pro ? setPro(false) : setProModal(true))}
+            className={`rounded-full px-4 py-2 text-xs font-semibold tracking-wide ${pro ? "bg-primary text-primary-foreground" : "glass"}`}
+          >
+            {pro ? "PRO ATIVO" : "FREE · ver PRO"}
+          </button>
+        </div>
       </header>
 
       <div className="sticky top-0 z-20 flex h-[58vh] flex-col border-b bg-background shadow-[0_8px_24px_-18px_rgba(0,0,0,0.25)] lg:absolute lg:inset-0 lg:z-auto lg:h-auto lg:border-0 lg:bg-transparent lg:shadow-none">

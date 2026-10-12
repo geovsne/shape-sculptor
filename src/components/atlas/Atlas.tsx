@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FeedbackButton, FeedbackLink } from "@/components/feedback/Feedback";
 import { Link } from "@tanstack/react-router";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
@@ -319,17 +320,18 @@ export function Atlas() {
       <header className="relative z-30 flex items-center justify-between gap-3 bg-background px-4 py-4 lg:absolute lg:inset-x-0 lg:top-0 lg:bg-transparent lg:px-8 lg:py-6">
         <Link to="/" className="font-display text-2xl font-bold tracking-tight">
           MYO<span className="text-primary">/</span>LAB
-          <span className="ml-2 align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="ml-2 hidden align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:inline">
             Atlas
           </span>
         </Link>
         <nav className="flex gap-1.5">
-          <Link to="/raio-x" className="glass rounded-full px-3 py-2 text-xs font-semibold">
+          <Link to="/raio-x" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
             Raio-X
           </Link>
-          <Link to="/editor" className="glass rounded-full px-3 py-2 text-xs font-semibold">
+          <Link to="/editor" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
             Simulador
           </Link>
+          <FeedbackButton screen="atlas" />
         </nav>
       </header>
 
@@ -448,6 +450,11 @@ export function Atlas() {
                   )}
                   . Latim: Terminologia Anatomica, 2ª ed. (FIPAT, 2019).
                 </p>
+                <div className="mt-2">
+                  <FeedbackLink screen="atlas" item={nameOf(pick!.system, part)}>
+                    Reportar erro neste nome
+                  </FeedbackLink>
+                </div>
               </div>
             )}
           </div>

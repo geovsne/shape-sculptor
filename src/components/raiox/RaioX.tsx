@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { FeedbackButton, FeedbackLink } from "@/components/feedback/Feedback";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Viewer } from "../anatomy/Viewer";
 import { initSim } from "@/lib/sim";
@@ -349,17 +350,18 @@ export function RaioX() {
       <header className="relative z-30 flex items-center justify-between gap-3 bg-background px-4 py-4 lg:absolute lg:inset-x-0 lg:top-0 lg:bg-transparent lg:px-8 lg:py-6">
         <Link to="/" className="font-display text-2xl font-bold tracking-tight">
           MYO<span className="text-primary">/</span>LAB
-          <span className="ml-2 align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="ml-2 hidden align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:inline">
             Raio-X
           </span>
         </Link>
         <nav className="flex gap-1.5">
-          <Link to="/atlas" className="glass rounded-full px-3 py-2 text-xs font-semibold">
+          <Link to="/atlas" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
             Atlas
           </Link>
-          <Link to="/editor" className="glass rounded-full px-3 py-2 text-xs font-semibold">
+          <Link to="/editor" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
             Simulador
           </Link>
+          <FeedbackButton screen="raio-x" />
         </nav>
       </header>
 
@@ -583,6 +585,14 @@ export function RaioX() {
                   100% = o exercício é um dos que mais trabalham aquela parte. Sinergistas contam
                   pela metade. Estimativa educativa a partir da literatura de ativação muscular.
                 </p>
+                <div className="mt-1.5">
+                  <FeedbackLink
+                    screen="raio-x"
+                    item={[e.name, optLabel(pick)].filter(Boolean).join(" · ")}
+                  >
+                    Esse número parece errado?
+                  </FeedbackLink>
+                </div>
               </div>
             </div>
           )}
