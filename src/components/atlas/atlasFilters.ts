@@ -226,7 +226,7 @@ export const SYNONYMS: Record<string, string[]> = {
   pele: ["skin", "region"],
 };
 
-const norm = (s: string) =>
+export const norm = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFD")

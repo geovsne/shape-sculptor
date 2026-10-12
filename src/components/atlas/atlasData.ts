@@ -94,6 +94,20 @@ export function loadLayer(system: SystemId): Promise<AtlasLayer> {
   return p;
 }
 
+/** reviewed Portuguese names, Latin (TA2) and descriptions, one file per system */
+export type Term = { pt: string; la: string; ta2: number | null; d: string; src: string };
+export type Terms = { parts: Record<string, Term>; groups: Record<string, string> };
+
+/** systems whose names were already reviewed (see tools/anatomy/terms) */
+export const TERMS_READY: SystemId[] = ["organs"];
+
+export function loadTerms(system: SystemId): Promise<Terms> {
+  if (!TERMS_READY.includes(system)) return Promise.resolve({ parts: {}, groups: {} });
+  return fetch(`/atlas/terms-${system}.json`)
+    .then((r) => (r.ok ? (r.json() as Promise<Terms>) : { parts: {}, groups: {} }))
+    .catch(() => ({ parts: {}, groups: {} }));
+}
+
 /** colour per kind of structure */
 export const CAT_COLOR: Record<string, string> = {
   skin: "#e2b398",

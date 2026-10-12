@@ -6,16 +6,18 @@ import { StudioEnvironment } from "../anatomy/StudioEnvironment";
 import * as THREE from "three";
 import { createMuscleMaterial, TENDON_COLOR } from "../anatomy/muscleMaterial";
 import { buildMuscleDetail } from "./muscleDetail";
-import { PRESETS, SUBS, SUB_COLOR, classify, searchTerms } from "./atlasFilters";
+import { PRESETS, SUBS, SUB_COLOR, classify, norm, searchTerms } from "./atlasFilters";
 import {
   CAT_COLOR,
   SIDE_LABEL,
   SYSTEMS,
   SYSTEM_LABEL,
   loadLayer,
+  loadTerms,
   type AtlasLayer,
   type AtlasPart,
   type SystemId,
+  type Terms,
 } from "./atlasData";
 
 type Pick = { system: SystemId; index: number };
@@ -197,6 +199,8 @@ export function Atlas() {
   const [q, setQ] = useState("");
   const [hidden, setHidden] = useState<Set<string>>(() => new Set(["fascia"]));
   const [catalog, setCatalog] = useState<Partial<Record<SystemId, AtlasPart[]>>>({});
+  const [terms, setTerms] = useState<Partial<Record<SystemId, Terms>>>({});
+  const [open, setOpen] = useState(false);
 
   // part names of every layer (small headers) so search reaches all structures
   useEffect(() => {
@@ -205,7 +209,16 @@ export function Atlas() {
         .then((r) => r.json())
         .then((h: { parts: AtlasPart[] }) => setCatalog((c) => ({ ...c, [s]: h.parts })))
         .catch(() => {});
+    for (const s of SYSTEMS) loadTerms(s).then((t) => setTerms((m) => ({ ...m, [s]: t })));
   }, []);
+
+  // the description starts closed for every new structure
+  useEffect(() => setOpen(false), [pick?.system, pick?.index]);
+
+  const termOf = (s: SystemId, p: AtlasPart) => terms[s]?.parts[p.base];
+  const nameOf = (s: SystemId, p: AtlasPart) => termOf(s, p)?.pt ?? p.base;
+  const groupOf = (s: SystemId, p: AtlasPart) =>
+    p.group ? (terms[s]?.groups[p.group] ?? p.group) : "";
 
   const toggleSub = (id: string) =>
     setHidden((h) => {
@@ -245,20 +258,42 @@ export function Atlas() {
     ? (layers[pick.system]?.parts[pick.index] ?? catalog[pick.system]?.[pick.index] ?? null)
     : null;
 
-  const results = useMemo(() => {
-    const terms = searchTerms(q);
-    if (!terms.length) return [];
-    const out: { system: SystemId; index: number; p: AtlasPart }[] = [];
-    for (const s of SYSTEMS) {
-      const parts = layers[s]?.parts ?? catalog[s];
-      parts?.forEach((p, i) => {
-        const n = `${p.name} ${p.group ?? ""}`.toLowerCase();
-        if (out.length < 60 && terms.some((t) => n.includes(t)))
-          out.push({ system: s, index: i, p });
+  // searchable text of every structure: English, Portuguese, Latin and description
+  const haystack = useMemo(() => {
+    const out: { system: SystemId; index: number; p: AtlasPart; text: string }[] = [];
+    for (const s of SYSTEMS)
+      catalog[s]?.forEach((p, i) => {
+        const t = terms[s]?.parts[p.base];
+        const g = p.group ? (terms[s]?.groups[p.group] ?? "") : "";
+        out.push({
+          system: s,
+          index: i,
+          p,
+          text: norm(`${p.name} ${p.group ?? ""} ${g} ${t ? `${t.pt} ${t.la} ${t.d}` : ""}`),
+        });
       });
-    }
     return out;
-  }, [q, layers, catalog]);
+  }, [catalog, terms]);
+
+  const results = useMemo(() => {
+    const words = searchTerms(q);
+    if (!words.length) return [];
+    // names that start with the query first, then names that contain it, then description hits
+    const hits = haystack.filter((h) => words.some((w) => h.text.includes(w)));
+    const rank = (h: (typeof hits)[number]) => {
+      const pt = norm(nameOf(h.system, h.p));
+      const en = norm(h.p.name);
+      if (words.some((w) => pt.startsWith(w) || en.startsWith(w))) return 0;
+      if (words.some((w) => pt.includes(w) || en.includes(w))) return 1;
+      return 2;
+    };
+    return hits
+      .map((h) => ({ h, r: rank(h) }))
+      .sort((a, b) => a.r - b.r)
+      .map((x) => x.h)
+      .slice(0, 60);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, haystack]);
 
   // the isolated structure's bounds, for the camera
   const focusBox = useMemo(() => {
@@ -271,6 +306,8 @@ export function Atlas() {
     for (let i = p.v0; i < p.v0 + p.nv; i++) b.expandByPoint(v.fromArray(ly.pos, i * 3));
     return b;
   }, [isolate, pick, layers]);
+
+  const term = pick && part ? termOf(pick.system, part) : undefined;
 
   const total = SYSTEMS.reduce((a, s) => a + (catalog[s]?.length ?? 0), 0);
 
@@ -322,10 +359,10 @@ export function Atlas() {
           <div className="glass absolute inset-x-3 bottom-3 z-10 rounded-2xl p-3 lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:w-[420px] lg:-translate-x-1/2">
             <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               {pick ? SYSTEM_LABEL[pick.system] : ""}
-              {part.group ? ` · ${part.group}` : ""}
+              {pick && part.group ? ` · ${groupOf(pick.system, part)}` : ""}
             </div>
             <div className="font-display text-lg font-semibold leading-tight">
-              {part.base}
+              {pick ? nameOf(pick.system, part) : part.base}
               {part.side !== "c" && (
                 <span className="font-normal text-muted-foreground">
                   {" "}
@@ -351,10 +388,46 @@ export function Atlas() {
               >
                 Fechar
               </button>
-              <span className="ml-auto self-center text-[10px] text-muted-foreground">
-                Ficha em breve
-              </span>
+              {term ? (
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => setOpen(!open)}
+                  className="ml-auto self-center text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  {open ? "Fechar descrição ▴" : "Descrição ▾"}
+                </button>
+              ) : (
+                <span className="ml-auto self-center text-[10px] text-muted-foreground">
+                  Descrição em breve
+                </span>
+              )}
             </div>
+            {term && open && (
+              <div className="mt-3 max-h-[34vh] overflow-y-auto border-t pt-3 text-sm leading-relaxed lg:max-h-[50vh]">
+                <p className="text-xs text-muted-foreground">
+                  <span className="italic">{term.la}</span>
+                  {term.ta2 ? ` · TA2 ${term.ta2}` : ""}
+                </p>
+                <p className="mt-1.5">{term.d}</p>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Fonte:{" "}
+                  {term.src.startsWith("http") ? (
+                    <a
+                      href={term.src}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      {term.src.includes("wikipedia") ? "Wikipédia" : "Radiopaedia"}
+                    </a>
+                  ) : (
+                    term.src
+                  )}
+                  . Latim: Terminologia Anatomica, 2ª ed. (FIPAT, 2019).
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -461,7 +534,7 @@ export function Atlas() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar estrutura (ex.: biceps, femur, vagus)"
+          placeholder="Buscar estrutura (ex.: fígado, biceps, femur)"
           className="mt-4 w-full rounded-full bg-secondary px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
         />
         {results.length > 0 && (
@@ -485,7 +558,7 @@ export function Atlas() {
                 className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs hover:bg-secondary"
               >
                 <span>
-                  {r.p.base}
+                  {nameOf(r.system, r.p)}
                   {r.p.side !== "c" && (
                     <span className="text-muted-foreground"> ({SIDE_LABEL[r.p.side]})</span>
                   )}
@@ -504,8 +577,9 @@ export function Atlas() {
         )}
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
         <p className="mt-6 text-[10px] leading-relaxed text-muted-foreground">
-          Nomes em inglês anatômico (Terminologia Anatômica). Português, latim, fichas e quiz chegam
-          em breve. Modelos: Z-Anatomy (CC BY-SA 4.0), baseado em BodyParts3D.
+          Órgãos já em português, com latim da Terminologia Anatomica (FIPAT, 2019) e descrição. Os
+          demais sistemas ainda em inglês anatômico; português e quiz chegam em breve. Modelos:
+          Z-Anatomy (CC BY-SA 4.0), baseado em BodyParts3D.
         </p>
       </aside>
     </div>

@@ -218,3 +218,30 @@ ROWS = [
  ("Suprarenal gland", "Glândula suprarrenal", "Glandula suprarenalis", 3874,
   "Glândula sobre cada rim, também chamada adrenal. O córtex produz cortisol e aldosterona; a medula produz adrenalina.", W+"Adrenal_gland", ""),
 ]
+
+# group names shown above the structure name on the card
+GROUPS = {
+    "Bronchi": "Brônquios",
+    "Colon": "Colo",
+    "Digestive canal": "Canal alimentar",
+    "Digestive system": "Sistema digestório",
+    "Endocrine glands": "Glândulas endócrinas",
+    "Extrahepatic bile ducts": "Vias biliares extra-hepáticas",
+    "Hypophysis": "Hipófise",
+    "Larynx": "Laringe",
+    "Left lung": "Pulmão esquerdo",
+    "Major salivary glands": "Glândulas salivares maiores",
+    "Male internal genitalia": "Órgãos genitais masculinos internos",
+    "Mouth": "Boca",
+    "Nose": "Nariz",
+    "Parathyroid glands": "Glândulas paratireoides",
+    "Penis": "Pênis",
+    "Peritoneal structures": "Peritônio",
+    "Pharynx": "Faringe",
+    "Right lung": "Pulmão direito",
+    "Small intestine": "Intestino delgado",
+    "Taeniae coli": "Tênias do colo",
+    "Thoracic cavity": "Cavidade torácica",
+    "Tracheobronchial tree": "Árvore traqueobronquial",
+    "Urinary system": "Sistema urinário",
+}
