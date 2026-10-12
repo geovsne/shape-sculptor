@@ -13,8 +13,9 @@ OUT = os.path.join(HERE, "..", "..", "..", "public", "atlas")
 import organs  # noqa: E402
 
 import skin  # noqa: E402
+import bones  # noqa: E402
 
-TABLES = {"organs": organs, "skin": skin}
+TABLES = {"organs": organs, "skin": skin, "bones": bones}
 for system, mod in TABLES.items():
     parts = {}
     for en, pt, la, ta2, desc, src, _note in mod.ROWS:
