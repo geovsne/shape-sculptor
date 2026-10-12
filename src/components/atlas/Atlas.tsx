@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
 import { StudioEnvironment } from "../anatomy/StudioEnvironment";
 import * as THREE from "three";
@@ -39,7 +39,10 @@ function LayerMesh({
   hidden: Set<string>;
   onPick: (index: number | null, through: boolean) => void;
 }) {
-  const detail = useMemo(() => layer.system === "muscles" ? buildMuscleDetail(layer) : null, [layer]);
+  const detail = useMemo(
+    () => (layer.system === "muscles" ? buildMuscleDetail(layer) : null),
+    [layer],
+  );
   const subs = useMemo(() => layer.parts.map((p) => classify(layer.system, p)), [layer]);
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -102,20 +105,20 @@ function LayerMesh({
     geo.setIndex(new THREE.BufferAttribute(out, 1));
   }, [geo, layer, picked, isolate, hidden, subs]);
 
-  const mat = useMemo(
-    () => {
-      const material = layer.system === "muscles" ? createMuscleMaterial() : new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        roughness: layer.system === "bones" ? 0.7 : 0.5,
-        metalness: 0,
-        transparent: true,
-        side: THREE.DoubleSide,
-      });
-      material.side = THREE.DoubleSide;
-      return material;
-    },
-    [layer.system],
-  );
+  const mat = useMemo(() => {
+    const material =
+      layer.system === "muscles"
+        ? createMuscleMaterial()
+        : new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: layer.system === "bones" ? 0.7 : 0.5,
+            metalness: 0,
+            transparent: true,
+            side: THREE.DoubleSide,
+          });
+    material.side = THREE.DoubleSide;
+    return material;
+  }, [layer.system]);
   useEffect(() => {
     mat.opacity = ghost ? (layer.system === "skin" ? 0.18 : 0.28) : 1;
     mat.depthWrite = !ghost;
@@ -138,6 +141,41 @@ function LayerMesh({
       }}
     />
   );
+}
+
+const HOME = { target: new THREE.Vector3(0, 0.95, 0), cam: new THREE.Vector3(0, 1.0, 3.6) };
+
+/** glides the camera to frame a box (an isolated structure), or back to the whole body */
+function CameraFocus({ box }: { box: THREE.Box3 | null }) {
+  const { camera, controls } = useThree() as unknown as {
+    camera: THREE.PerspectiveCamera;
+    controls: { target: THREE.Vector3; update: () => void } | null;
+  };
+  const goal = useRef<{ target: THREE.Vector3; cam: THREE.Vector3 } | null>(null);
+  useEffect(() => {
+    if (!box) {
+      goal.current = { target: HOME.target.clone(), cam: HOME.cam.clone() };
+      return;
+    }
+    const c = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length();
+    const dist = Math.min(3.6, Math.max(0.25, size * 1.6));
+    const dir = camera.position
+      .clone()
+      .sub(controls?.target ?? HOME.target)
+      .normalize();
+    goal.current = { target: c, cam: c.clone().add(dir.multiplyScalar(dist)) };
+  }, [box, camera, controls]);
+  useFrame(() => {
+    const g = goal.current;
+    if (!g || !controls) return;
+    controls.target.lerp(g.target, 0.12);
+    camera.position.lerp(g.cam, 0.12);
+    controls.update();
+    if (controls.target.distanceTo(g.target) < 0.001 && camera.position.distanceTo(g.cam) < 0.001)
+      goal.current = null;
+  });
+  return null;
 }
 
 export function Atlas() {
@@ -179,7 +217,9 @@ export function Atlas() {
 
   const applyPreset = (id: string) => {
     const p = PRESETS.find((x) => x.id === id)!;
-    setOn(Object.fromEntries(SYSTEMS.map((s) => [s, p.on.includes(s)])) as Record<SystemId, boolean>);
+    setOn(
+      Object.fromEntries(SYSTEMS.map((s) => [s, p.on.includes(s)])) as Record<SystemId, boolean>,
+    );
     setHidden(new Set(p.hidden));
     setPick(null);
     setIsolate(false);
@@ -212,12 +252,25 @@ export function Atlas() {
     for (const s of SYSTEMS) {
       const parts = layers[s]?.parts ?? catalog[s];
       parts?.forEach((p, i) => {
-        const n = p.name.toLowerCase();
-        if (out.length < 60 && terms.some((t) => n.includes(t))) out.push({ system: s, index: i, p });
+        const n = `${p.name} ${p.group ?? ""}`.toLowerCase();
+        if (out.length < 60 && terms.some((t) => n.includes(t)))
+          out.push({ system: s, index: i, p });
       });
     }
     return out;
   }, [q, layers, catalog]);
+
+  // the isolated structure's bounds, for the camera
+  const focusBox = useMemo(() => {
+    if (!isolate || !pick) return null;
+    const ly = layers[pick.system];
+    const p = ly?.parts[pick.index];
+    if (!ly || !p) return null;
+    const b = new THREE.Box3();
+    const v = new THREE.Vector3();
+    for (let i = p.v0; i < p.v0 + p.nv; i++) b.expandByPoint(v.fromArray(ly.pos, i * 3));
+    return b;
+  }, [isolate, pick, layers]);
 
   const total = SYSTEMS.reduce((a, s) => a + (catalog[s]?.length ?? 0), 0);
 
@@ -250,7 +303,9 @@ export function Atlas() {
             );
           })}
           <ContactShadows position={[0, 0, 0]} opacity={0.3} scale={3} blur={2.4} far={1.5} />
+          <CameraFocus box={focusBox} />
           <OrbitControls
+            makeDefault
             target={[0, 0.95, 0]}
             enablePan
             screenSpacePanning
@@ -324,9 +379,28 @@ export function Atlas() {
           Atlas anatômico
         </h2>
         <p className="mt-1.5 text-xs text-muted-foreground">
-          Ligue as camadas e toque numa estrutura para ver o nome. Arraste para girar.
+          {total > 0 ? `${total.toLocaleString("pt-BR")} estruturas. ` : ""}Ligue as camadas e toque
+          numa estrutura para ver o nome. Arraste para girar.
         </p>
-        <div className="mt-4 flex flex-wrap gap-1.5">
+        <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          Modo rápido
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {PRESETS.map((p) => (
+            <button
+              type="button"
+              key={p.id}
+              onClick={() => applyPreset(p.id)}
+              className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-foreground hover:text-background"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          Camadas
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {SYSTEMS.map((s) => (
             <button
               type="button"
@@ -358,6 +432,28 @@ export function Atlas() {
             </button>
           ))}
         </div>
+        {SYSTEMS.filter((s) => on[s] && SUBS[s].length > 1).map((s) => (
+          <div key={s} className="mt-3">
+            <div className="text-[10px] font-semibold text-muted-foreground">{SYSTEM_LABEL[s]}</div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {SUBS[s].map((sub) => {
+                const shown = !hidden.has(sub.id);
+                return (
+                  <button
+                    type="button"
+                    key={sub.id}
+                    aria-pressed={shown}
+                    onClick={() => toggleSub(sub.id)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] transition-all ${shown ? "border-foreground/70 bg-background font-medium" : "border-dashed text-muted-foreground"}`}
+                  >
+                    {shown ? "✓ " : ""}
+                    {sub.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
         <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={see} onChange={(e) => setSee(e.target.checked)} />
           Pele e músculos transparentes
@@ -375,6 +471,14 @@ export function Atlas() {
                 type="button"
                 key={`${r.system}-${r.index}`}
                 onClick={() => {
+                  // turn on its layer and its group, then show it alone
+                  setOn((o) => ({ ...o, [r.system]: true }));
+                  const sub = classify(r.system, r.p);
+                  setHidden((h) => {
+                    const n = new Set(h);
+                    n.delete(sub);
+                    return n;
+                  });
                   setPick({ system: r.system, index: r.index });
                   setIsolate(true);
                 }}
@@ -395,7 +499,7 @@ export function Atlas() {
         )}
         {q.trim().length >= 2 && results.length === 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Nada nas camadas ligadas. Ligue a camada da estrutura e busque de novo.
+            Nada encontrado. Tente o nome em inglês anatômico (ex.: liver, femur, sciatic).
           </p>
         )}
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}

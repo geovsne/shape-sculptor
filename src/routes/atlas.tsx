@@ -11,7 +11,10 @@ export const Route = createFileRoute("/atlas")({
         content: "Atlas 3D grátis: músculos, ossos, ligamentos, nervos, vasos e órgãos.",
       },
       { property: "og:title", content: "Atlas anatômico · MYO/LAB" },
-      { property: "og:description", content: "Explore músculos, ossos e estruturas anatômicas em 3D." },
+      {
+        property: "og:description",
+        content: "Explore músculos, ossos e estruturas anatômicas em 3D.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

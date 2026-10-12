@@ -55,14 +55,61 @@ export const SUB_COLOR: Record<string, string> = Object.fromEntries(
 const has = (s: string, ...w: string[]) => w.some((x) => s.includes(x));
 
 const DEEP = [
-  "deep", "profund", "rotator cuff", "supraspinatus", "infraspinatus", "teres minor", "subscapularis",
-  "brachialis muscle", "coracobrachialis", "soleus", "piriformis", "gemellus", "obturator", "quadratus",
-  "intercostal", "transversus", "internal abdominal", "pectoralis minor", "subclavius", "multifidus",
-  "rotatores", "interspinales", "semispinalis", "splenius", "suboccipital", "levatores", "iliopsoas",
-  "psoas", "iliacus", "vastus intermedius", "adductor brevis", "adductor magnus", "popliteus", "tibialis posterior",
-  "supinator", "pronator quadratus", "flexor digitorum profundus", "longissimus", "iliocostalis", "spinalis",
-  "rhomboid", "levator scapulae", "serratus posterior", "pelvic", "levator ani", "perine", "pharyn", "laryn",
-  "tongue", "palate", "extra-ocular", "gluteus minimus", "lumbrical", "interosse", "hypaxial",
+  "deep",
+  "profund",
+  "rotator cuff",
+  "supraspinatus",
+  "infraspinatus",
+  "teres minor",
+  "subscapularis",
+  "brachialis muscle",
+  "coracobrachialis",
+  "soleus",
+  "piriformis",
+  "gemellus",
+  "obturator",
+  "quadratus",
+  "intercostal",
+  "transversus",
+  "internal abdominal",
+  "pectoralis minor",
+  "subclavius",
+  "multifidus",
+  "rotatores",
+  "interspinales",
+  "semispinalis",
+  "splenius",
+  "suboccipital",
+  "levatores",
+  "iliopsoas",
+  "psoas",
+  "iliacus",
+  "vastus intermedius",
+  "adductor brevis",
+  "adductor magnus",
+  "popliteus",
+  "tibialis posterior",
+  "supinator",
+  "pronator quadratus",
+  "flexor digitorum profundus",
+  "longissimus",
+  "iliocostalis",
+  "spinalis",
+  "rhomboid",
+  "levator scapulae",
+  "serratus posterior",
+  "pelvic",
+  "levator ani",
+  "perine",
+  "pharyn",
+  "laryn",
+  "tongue",
+  "palate",
+  "extra-ocular",
+  "gluteus minimus",
+  "lumbrical",
+  "interosse",
+  "hypaxial",
 ];
 
 export function classify(system: SystemId, p: AtlasPart): string {
@@ -78,8 +125,12 @@ export function classify(system: SystemId, p: AtlasPart): string {
       return DEEP.some((w) => n.includes(w) || g.includes(w)) ? "deep" : "superficial";
     case "bones":
       if (has(n, "cartilage", "meniscus") || has(g, "cartilage")) return "cartilage";
-      if (has(g, "cranium", "head", "teeth", "ossicles") || has(n, "tooth", "mandible", "maxilla")) return "skull";
-      if (has(g, "vertebra", "rib", "sternum", "column") || has(n, "vertebra", "rib", "sacrum", "coccyx", "sternum"))
+      if (has(g, "cranium", "head", "teeth", "ossicles") || has(n, "tooth", "mandible", "maxilla"))
+        return "skull";
+      if (
+        has(g, "vertebra", "rib", "sternum", "column") ||
+        has(n, "vertebra", "rib", "sacrum", "coccyx", "sternum")
+      )
         return "axial";
       return "limbs";
     case "joints":
@@ -92,10 +143,13 @@ export function classify(system: SystemId, p: AtlasPart): string {
     case "vessels":
       return p.cat === "heart" ? "heart" : p.cat === "vein" ? "vein" : "artery";
     case "organs":
-      if (has(g, "lung", "bronch", "trache", "larynx", "nose", "thoracic") || has(g, "pharynx")) return "respiratory";
+      if (has(g, "lung", "bronch", "trache", "larynx", "nose", "thoracic") || has(g, "pharynx"))
+        return "respiratory";
       if (has(g, "endocrine", "hypophysis", "parathyroid")) return "endocrine";
-      if (has(g, "urinary", "genital")) return "urinary";
-      if (has(g, "digestive", "intestine", "colon", "taeniae", "bile", "salivary")) return "digestive";
+      if (has(g, "urinary", "genital", "penis") || has(n, "penis", "testis", "prostate", "scrot"))
+        return "urinary";
+      if (has(g, "digestive", "intestine", "colon", "taeniae", "bile", "salivary"))
+        return "digestive";
       return "other";
   }
 }
@@ -104,43 +158,105 @@ export function classify(system: SystemId, p: AtlasPart): string {
 export const SYNONYMS: Record<string, string[]> = {
   ombro: ["deltoid", "shoulder", "rotator", "supraspinatus", "infraspinatus"],
   deltoide: ["deltoid"],
-  peito: ["pectoral"], peitoral: ["pectoral"],
-  biceps: ["biceps"], triceps: ["triceps"], antebraco: ["forearm", "carpi", "digitorum"],
-  costas: ["latissimus", "trapezius", "rhomboid", "erector"], dorsal: ["latissimus"], trapezio: ["trapezius"],
-  abdomen: ["abdomin", "oblique"], abdominal: ["rectus abdominis", "oblique"],
-  gluteo: ["gluteus"], quadriceps: ["rectus femoris", "vastus"], coxa: ["femor", "vastus", "thigh"],
-  posterior: ["biceps femoris", "semitendinosus", "semimembranosus"], panturrilha: ["gastrocnemius", "soleus"],
-  joelho: ["knee", "patell", "menisc", "cruciate"], quadril: ["hip", "iliac", "femur", "acetabul"],
-  coluna: ["vertebra", "spinal", "intervertebral"], bursite: ["bursa"], bursa: ["bursa"], fascia: ["fascia"],
-  tendao: ["tendon"], ligamento: ["ligament"], menisco: ["menisc"], cartilagem: ["cartilage"],
-  osso: ["bone"], cranio: ["cranium", "skull", "frontal bone", "parietal", "occipital"], dente: ["tooth", "teeth", "incisor", "molar"],
-  costela: ["rib"], femur: ["femur"], umero: ["humerus"], clavicula: ["clavicle"], escapula: ["scapula"],
-  cerebro: ["brain", "cerebr", "lobe", "thalamus", "hippocampus"], cerebelo: ["cerebell"], hipocampo: ["hippocampus"],
-  talamo: ["thalamus"], hipotalamo: ["hypothalamus"], medula: ["spinal cord", "medulla"], nervo: ["nerve"],
-  ciatico: ["sciatic"], vago: ["vagus"], plexo: ["plexus"], olho: ["eye", "retina", "optic"], ouvido: ["cochlea", "tympanic", "ear"],
-  coracao: ["heart", "atrium", "ventricle", "valve"], arteria: ["artery", "aorta"], veia: ["vein"], aorta: ["aorta"],
-  figado: ["liver"], estomago: ["stomach"], intestino: ["intestine", "colon", "duodenum", "jejunum"], pancreas: ["pancreas"],
-  vesicula: ["gallbladder"], pulmao: ["lung"], bronquio: ["bronch"], traqueia: ["trachea"], rim: ["kidney"], rins: ["kidney"],
-  bexiga: ["bladder"], tireoide: ["thyroid"], hipofise: ["hypophysis"], adrenal: ["suprarenal"], glandula: ["gland"],
-  lingua: ["tongue"], pele: ["skin", "region"],
+  peito: ["pectoral"],
+  peitoral: ["pectoral"],
+  biceps: ["biceps"],
+  triceps: ["triceps"],
+  antebraco: ["forearm", "carpi", "digitorum"],
+  costas: ["latissimus", "trapezius", "rhomboid", "erector"],
+  dorsal: ["latissimus"],
+  trapezio: ["trapezius"],
+  abdomen: ["abdomin", "oblique"],
+  abdominal: ["rectus abdominis", "oblique"],
+  gluteo: ["gluteus"],
+  quadriceps: ["rectus femoris", "vastus"],
+  coxa: ["femor", "vastus", "thigh"],
+  posterior: ["biceps femoris", "semitendinosus", "semimembranosus"],
+  panturrilha: ["gastrocnemius", "soleus"],
+  joelho: ["knee", "patell", "menisc", "cruciate"],
+  quadril: ["hip", "iliac", "femur", "acetabul"],
+  coluna: ["vertebra", "spinal", "intervertebral"],
+  bursite: ["bursa"],
+  bursa: ["bursa"],
+  fascia: ["fascia"],
+  tendao: ["tendon"],
+  ligamento: ["ligament"],
+  menisco: ["menisc"],
+  cartilagem: ["cartilage"],
+  osso: ["bone"],
+  cranio: ["cranium", "skull", "frontal bone", "parietal", "occipital"],
+  dente: ["tooth", "teeth", "incisor", "molar"],
+  costela: ["rib"],
+  femur: ["femur"],
+  umero: ["humerus"],
+  clavicula: ["clavicle"],
+  escapula: ["scapula"],
+  cerebro: ["brain", "cerebr", "lobe", "thalamus", "hippocampus"],
+  cerebelo: ["cerebell"],
+  hipocampo: ["hippocampus"],
+  talamo: ["thalamus"],
+  hipotalamo: ["hypothalamus"],
+  medula: ["spinal cord", "medulla"],
+  nervo: ["nerve"],
+  ciatico: ["sciatic", "tibial nerve", "common fibular nerve"],
+  vago: ["vagus"],
+  plexo: ["plexus"],
+  olho: ["eye", "retina", "optic"],
+  ouvido: ["cochlea", "tympanic", "ear"],
+  coracao: ["heart", "atrium", "ventricle", "valve"],
+  arteria: ["artery", "aorta"],
+  veia: ["vein"],
+  aorta: ["aorta"],
+  figado: ["liver"],
+  estomago: ["stomach"],
+  intestino: ["intestine", "colon", "duodenum", "jejunum"],
+  pancreas: ["pancreas"],
+  vesicula: ["gallbladder"],
+  pulmao: ["lung"],
+  bronquio: ["bronch"],
+  traqueia: ["trachea"],
+  rim: ["kidney"],
+  rins: ["kidney"],
+  bexiga: ["bladder"],
+  tireoide: ["thyroid"],
+  hipofise: ["hypophysis"],
+  adrenal: ["suprarenal"],
+  glandula: ["gland"],
+  lingua: ["tongue"],
+  pele: ["skin", "region"],
 };
 
-const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
 /** expand a user query into English fragments to match against part names */
 export function searchTerms(q: string): string[] {
   const t = norm(q.trim());
   if (t.length < 2) return [];
   const out = new Set([t]);
-  for (const [k, v] of Object.entries(SYNONYMS)) if (k.startsWith(t) || t.startsWith(k)) v.forEach((x) => out.add(x));
+  for (const [k, v] of Object.entries(SYNONYMS))
+    if (k.startsWith(t) || t.startsWith(k)) v.forEach((x) => out.add(x));
   return [...out];
 }
 
 export type Preset = { id: string; label: string; on: SystemId[]; hidden: string[] };
 
 export const PRESETS: Preset[] = [
-  { id: "shape", label: "Shape e musculação", on: ["muscles", "bones"], hidden: ["fascia", "bursa", "deep"] },
-  { id: "injury", label: "Prevenção de lesões", on: ["muscles", "bones", "joints"], hidden: ["superficial", "deep", "fascia"] },
+  {
+    id: "shape",
+    label: "Shape e musculação",
+    on: ["muscles", "bones"],
+    hidden: ["fascia", "bursa", "deep"],
+  },
+  {
+    id: "injury",
+    label: "Prevenção de lesões",
+    on: ["muscles", "bones", "joints"],
+    hidden: ["superficial", "deep", "fascia"],
+  },
   { id: "physio", label: "Fisiologia e saúde", on: ["vessels", "organs", "bones"], hidden: [] },
   { id: "neuro", label: "Neuromotor", on: ["nerves", "bones"], hidden: ["skull"] },
 ];

@@ -14,7 +14,11 @@ export function StudioEnvironment() {
       ["#d4e6ff", 1, new THREE.Vector3(5, 1, -1), new THREE.Vector3(20, 2, 1)],
     ];
     const materials = panels.map(([color, intensity, position, scale]) => {
-      const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(intensity), side: THREE.DoubleSide, toneMapped: false });
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(color).multiplyScalar(intensity),
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
       const panel = new THREE.Mesh(geometry, material);
       panel.position.copy(position);
       panel.scale.copy(scale);

@@ -11,7 +11,10 @@ export const Route = createFileRoute("/editor")({
         content: "Monte a semana de treino do avatar e veja o corpo evoluir semana a semana.",
       },
       { property: "og:title", content: "Simulador · MYO/LAB" },
-      { property: "og:description", content: "Monte a semana de treino do atlas corporal e simule sua evolução." },
+      {
+        property: "og:description",
+        content: "Monte a semana de treino do atlas corporal e simule sua evolução.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

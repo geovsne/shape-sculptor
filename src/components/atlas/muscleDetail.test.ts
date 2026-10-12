@@ -6,8 +6,12 @@ function fixture(base = "Biceps brachii muscle"): AtlasLayer {
   return {
     system: "muscles",
     pos: new Float32Array([0, 0, 0, 0.1, 0.5, 0, -0.1, 0.5, 0, 0, 1, 0]),
-    nrm: new Float32Array(12), idx: new Uint32Array(), part: new Uint16Array(4),
-    parts: [{ name: base, base, side: "c", group: null, cat: "muscles", v0: 0, nv: 4, t0: 0, nt: 0 }],
+    nrm: new Float32Array(12),
+    idx: new Uint32Array(),
+    part: new Uint16Array(4),
+    parts: [
+      { name: base, base, side: "c", group: null, cat: "muscles", v0: 0, nv: 4, t0: 0, nt: 0 },
+    ],
   };
 }
 
