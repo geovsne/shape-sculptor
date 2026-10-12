@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
+import { ContactShadows, OrbitControls } from "@react-three/drei";
+import { StudioEnvironment } from "../anatomy/StudioEnvironment";
 import * as THREE from "three";
 import { createMuscleMaterial, TENDON_COLOR } from "../anatomy/muscleMaterial";
 import { buildMuscleDetail } from "./muscleDetail";
@@ -176,14 +177,7 @@ export function Atlas() {
           <ambientLight intensity={0.6} />
           <directionalLight position={[2, 4, 3]} intensity={1.6} />
           <directionalLight position={[-3, 2, -2]} intensity={0.8} color="#cfe3ff" />
-          <Environment resolution={128}>
-            <Lightformer
-              intensity={2}
-              position={[0, 5, 0]}
-              scale={[10, 10, 1]}
-              rotation-x={Math.PI / 2}
-            />
-          </Environment>
+          <StudioEnvironment />
           {SYSTEMS.map((s) => {
             const ly = layers[s];
             if (!ly || !on[s]) return null;
@@ -307,8 +301,6 @@ export function Atlas() {
                           : CAT_COLOR[s],
                 }}
               />
-            <Lightformer intensity={1.2} color="#ffd9c4" position={[-5, 1, 1]} rotation-y={Math.PI / 2} scale={[20, 2, 1]} />
-            <Lightformer intensity={1} color="#d4e6ff" position={[5, 1, -1]} rotation-y={-Math.PI / 2} scale={[20, 2, 1]} />
               {SYSTEM_LABEL[s]}
             </button>
           ))}
