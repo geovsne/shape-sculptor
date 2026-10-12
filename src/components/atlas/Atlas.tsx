@@ -6,6 +6,7 @@ import { StudioEnvironment } from "../anatomy/StudioEnvironment";
 import * as THREE from "three";
 import { createMuscleMaterial, TENDON_COLOR } from "../anatomy/muscleMaterial";
 import { buildMuscleDetail } from "./muscleDetail";
+import { PRESETS, SUBS, SUB_COLOR, classify, searchTerms } from "./atlasFilters";
 import {
   CAT_COLOR,
   SIDE_LABEL,
@@ -28,15 +29,18 @@ function LayerMesh({
   picked,
   isolate,
   ghost,
+  hidden,
   onPick,
 }: {
   layer: AtlasLayer;
   picked: number | null;
   isolate: boolean;
   ghost: boolean;
+  hidden: Set<string>;
   onPick: (index: number | null, through: boolean) => void;
 }) {
   const detail = useMemo(() => layer.system === "muscles" ? buildMuscleDetail(layer) : null, [layer]);
+  const subs = useMemo(() => layer.parts.map((p) => classify(layer.system, p)), [layer]);
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(layer.pos, 3));
@@ -58,27 +62,45 @@ function LayerMesh({
     const arr = col.array as Float32Array;
     const c = new THREE.Color();
     layer.parts.forEach((p, k) => {
-      c.set(CAT_COLOR[p.cat] ?? CAT_COLOR[layer.system] ?? "#cccccc");
+      c.set(SUB_COLOR[subs[k]!] ?? CAT_COLOR[p.cat] ?? CAT_COLOR[layer.system] ?? "#cccccc");
       if (k === picked) c.copy(HIGHLIGHT);
       const base = c.clone();
       for (let i = p.v0; i < p.v0 + p.nv; i++) {
         c.copy(base);
-        if (detail) {
+        if (detail && k !== picked && (subs[k] === "superficial" || subs[k] === "deep")) {
           const end = detail.end[i] ?? 0;
-          if (/tendon|aponeurosis/i.test(p.base) && k !== picked) c.copy(TENDON_COLOR);
+          if (/tendon|aponeurosis/i.test(p.base)) c.copy(TENDON_COLOR);
           else c.lerp(TENDON_COLOR, Math.min(1, Math.max(0, (end - 0.82) / 0.16)) * 0.85);
         }
         c.toArray(arr, i * 3);
       }
     });
     col.needsUpdate = true;
-  }, [geo, layer, picked, detail]);
+  }, [geo, layer, picked, detail, subs]);
 
+  // visible triangles: isolated part, or every part whose sub-category is switched on
   useEffect(() => {
     const p = isolate && picked != null ? layer.parts[picked] : null;
-    if (p) geo.setDrawRange(p.t0 * 3, p.nt * 3);
-    else geo.setDrawRange(0, Infinity);
-  }, [geo, layer, picked, isolate]);
+    if (p) {
+      geo.setIndex(new THREE.BufferAttribute(layer.idx, 1));
+      geo.setDrawRange(p.t0 * 3, p.nt * 3);
+      return;
+    }
+    geo.setDrawRange(0, Infinity);
+    if (hidden.size === 0) {
+      geo.setIndex(new THREE.BufferAttribute(layer.idx, 1));
+      return;
+    }
+    const keep = layer.parts.filter((q, k) => k === picked || !hidden.has(subs[k]!));
+    const total = keep.reduce((a, q) => a + q.nt * 3, 0);
+    const out = new Uint32Array(total);
+    let o = 0;
+    for (const q of keep) {
+      out.set(layer.idx.subarray(q.t0 * 3, (q.t0 + q.nt) * 3), o);
+      o += q.nt * 3;
+    }
+    geo.setIndex(new THREE.BufferAttribute(out, 1));
+  }, [geo, layer, picked, isolate, hidden, subs]);
 
   const mat = useMemo(
     () => {
@@ -135,6 +157,33 @@ export function Atlas() {
   const [isolate, setIsolate] = useState(false);
   const [see, setSee] = useState(false);
   const [q, setQ] = useState("");
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set(["fascia"]));
+  const [catalog, setCatalog] = useState<Partial<Record<SystemId, AtlasPart[]>>>({});
+
+  // part names of every layer (small headers) so search reaches all structures
+  useEffect(() => {
+    for (const s of SYSTEMS)
+      fetch(`/atlas/atlas-${s}.json`)
+        .then((r) => r.json())
+        .then((h: { parts: AtlasPart[] }) => setCatalog((c) => ({ ...c, [s]: h.parts })))
+        .catch(() => {});
+  }, []);
+
+  const toggleSub = (id: string) =>
+    setHidden((h) => {
+      const n = new Set(h);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const applyPreset = (id: string) => {
+    const p = PRESETS.find((x) => x.id === id)!;
+    setOn(Object.fromEntries(SYSTEMS.map((s) => [s, p.on.includes(s)])) as Record<SystemId, boolean>);
+    setHidden(new Set(p.hidden));
+    setPick(null);
+    setIsolate(false);
+  };
 
   // load the layers that are switched on
   useEffect(() => {
@@ -152,22 +201,25 @@ export function Atlas() {
   const inner = on.nerves || on.vessels || on.organs;
   const ghostOf = (s: SystemId) => (see || inner) && (s === "skin" || s === "muscles");
 
-  const part: AtlasPart | null = pick ? (layers[pick.system]?.parts[pick.index] ?? null) : null;
+  const part: AtlasPart | null = pick
+    ? (layers[pick.system]?.parts[pick.index] ?? catalog[pick.system]?.[pick.index] ?? null)
+    : null;
 
   const results = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (term.length < 2) return [];
+    const terms = searchTerms(q);
+    if (!terms.length) return [];
     const out: { system: SystemId; index: number; p: AtlasPart }[] = [];
     for (const s of SYSTEMS) {
-      const ly = layers[s];
-      if (!ly) continue;
-      ly.parts.forEach((p, i) => {
-        if (out.length < 30 && p.name.toLowerCase().includes(term))
-          out.push({ system: s, index: i, p });
+      const parts = layers[s]?.parts ?? catalog[s];
+      parts?.forEach((p, i) => {
+        const n = p.name.toLowerCase();
+        if (out.length < 60 && terms.some((t) => n.includes(t))) out.push({ system: s, index: i, p });
       });
     }
     return out;
-  }, [q, layers]);
+  }, [q, layers, catalog]);
+
+  const total = SYSTEMS.reduce((a, s) => a + (catalog[s]?.length ?? 0), 0);
 
   return (
     <div className="relative min-h-screen w-full bg-background font-body text-foreground lg:h-screen lg:overflow-hidden">
@@ -189,6 +241,7 @@ export function Atlas() {
                 picked={pick?.system === s ? pick.index : null}
                 isolate={isolate}
                 ghost={!isolate && ghostOf(s)}
+                hidden={hidden}
                 onPick={(index, through) => {
                   if (through) return;
                   setPick(index == null ? null : { system: s, index });
