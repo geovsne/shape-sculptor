@@ -57,9 +57,100 @@ const it = (exId: string, sets: number, reps = 10, intensity: Intensity = "pesad
   intensity,
 });
 
-export const PRESETS: Record<string, { name: string; plan: () => Plan }> = {
+/** common, sensible routines to start from; hidden ones exist only for tests and demos */
+export const PRESETS: Record<
+  string,
+  { name: string; hint: string; plan: () => Plan; hidden?: boolean }
+> = {
+  full: {
+    name: "Full body 3x",
+    hint: "Iniciante: corpo todo em 3 dias alternados",
+    plan: () => {
+      const fb = [
+        it("squat", 3, 8),
+        it("bench", 3, 8),
+        it("row", 3, 10),
+        it("ohp", 2, 10),
+        it("rdl", 2, 10),
+        it("legRaise", 2, 12),
+      ];
+      return [fb, [], fb, [], fb, [], []];
+    },
+  },
+  abc: {
+    name: "ABC 3x",
+    hint: "A: peito, ombro e tríceps · B: costas e bíceps · C: pernas",
+    plan: () => {
+      const a = [
+        it("bench", 4, 8),
+        it("dbIncline", 3, 10),
+        it("ohp", 3, 10),
+        it("latRaise", 3, 12),
+        it("pushdown", 3, 12),
+      ];
+      const b = [
+        it("latPull", 4, 10),
+        it("row", 3, 8),
+        it("seatedRow", 3, 10),
+        it("curl", 3, 10),
+        it("hammer", 2, 12),
+      ];
+      const c = [
+        it("squat", 4, 8),
+        it("legPress", 3, 12),
+        it("rdl", 3, 10),
+        it("legCurl", 3, 12),
+        it("calfRaise", 4, 12),
+      ];
+      return [a, [], b, [], c, [], []];
+    },
+  },
+  abc2: {
+    name: "ABC 2x",
+    hint: "O ABC repetido duas vezes na semana, 6 dias",
+    plan: () => {
+      const a = [
+        it("bench", 3, 8),
+        it("dbIncline", 3, 10),
+        it("latRaise", 3, 12),
+        it("pushdown", 3, 12),
+      ];
+      const b = [it("latPull", 3, 10), it("row", 3, 8), it("facePull", 2, 15), it("curl", 3, 10)];
+      const c = [
+        it("squat", 3, 8),
+        it("rdl", 3, 10),
+        it("legExt", 2, 12),
+        it("calfRaise", 3, 12),
+        it("crunch", 3, 12),
+      ];
+      return [a, b, c, a, b, c, []];
+    },
+  },
+  upperLower: {
+    name: "Superior / Inferior 4x",
+    hint: "Parte de cima e de baixo, duas vezes cada",
+    plan: () => {
+      const up = [
+        it("bench", 3, 8),
+        it("row", 3, 8),
+        it("ohp", 3, 10),
+        it("latPull", 3, 10),
+        it("curl", 2, 12),
+        it("pushdown", 2, 12),
+      ];
+      const low = [
+        it("squat", 3, 8),
+        it("rdl", 3, 10),
+        it("legPress", 3, 12),
+        it("legCurl", 3, 12),
+        it("calfRaise", 3, 12),
+      ];
+      return [up, low, [], up, low, [], []];
+    },
+  },
   ppl: {
-    name: "Push / Pull / Legs",
+    name: "Push / Pull / Legs 6x",
+    hint: "Empurrar, puxar e pernas, duas vezes na semana",
     plan: () => {
       const push = [
         it("bench", 4, 8),
@@ -83,50 +174,29 @@ export const PRESETS: Record<string, { name: string; plan: () => Plan }> = {
       return [push, pull, legs, [], push, pull, legs];
     },
   },
-  upperLower: {
-    name: "Superior / Inferior",
-    plan: () => {
-      const up = [
-        it("bench", 3, 8),
-        it("row", 3, 8),
-        it("ohp", 3, 10),
-        it("latPull", 3, 10),
-        it("curl", 2, 12),
-        it("pushdown", 2, 12),
-      ];
-      const low = [
-        it("squat", 3, 8),
-        it("rdl", 3, 10),
+  abcde: {
+    name: "ABCDE 5x",
+    hint: "Um grupo por dia: peito, costas, ombro, braços, pernas",
+    plan: () => [
+      [it("bench", 4, 8), it("dbIncline", 3, 10), it("cableFly", 3, 12), it("dip", 3, 10)],
+      [it("pullup", 4, 8), it("row", 3, 8), it("seatedRow", 3, 10), it("straightArm", 3, 12)],
+      [it("ohp", 4, 8), it("latRaise", 4, 12), it("reverseFly", 3, 15), it("shrug", 3, 12)],
+      [it("curl", 3, 10), it("hammer", 3, 12), it("pushdown", 3, 12), it("frenchPress", 3, 12)],
+      [
+        it("squat", 4, 8),
         it("legPress", 3, 12),
+        it("rdl", 3, 10),
         it("legCurl", 3, 12),
-        it("calfRaise", 3, 12),
-      ];
-      return [up, low, [], up, low, [], []];
-    },
-  },
-  full: {
-    name: "Full body 3x",
-    plan: () => {
-      const fb = [
-        it("squat", 3, 8),
-        it("bench", 3, 8),
-        it("row", 3, 10),
-        it("ohp", 2, 10),
-        it("rdl", 2, 10),
-        it("legRaise", 2, 12),
-      ];
-      return [fb, [], fb, [], fb, [], []];
-    },
-  },
-  shoulders: {
-    name: "Ombro dia sim, dia não",
-    plan: () =>
-      [0, 1, 2, 3, 4, 5, 6].map((d) =>
-        d % 2 === 0 ? [it("ohp", 4, 8), it("latRaise", 4, 12), it("facePull", 3, 15)] : [],
-      ),
+        it("calfRaise", 4, 12),
+      ],
+      [],
+      [],
+    ],
   },
   overkill: {
     name: "Peito todo dia (overtraining)",
+    hint: "Exemplo do que não fazer",
+    hidden: true,
     plan: () =>
       Array.from({ length: 7 }, () => [
         it("bench", 6, 6, "falha"),

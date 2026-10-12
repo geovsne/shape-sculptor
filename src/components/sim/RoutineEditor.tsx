@@ -86,30 +86,37 @@ export function RoutineEditor({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap gap-1">
-        {Object.entries(PRESETS).map(([k, p]) => {
-          // highlighted while the routine is exactly that preset (any edit clears it)
-          const on = JSON.stringify(p.plan()) === planKey;
-          return (
-            <button
-              type="button"
-              key={k}
-              aria-pressed={on}
-              onClick={() => setPlan(() => p.plan())}
-              className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all ${on ? "border-foreground bg-foreground text-background" : "hover:bg-secondary"}`}
-            >
-              {on && "✓ "}
-              {p.name}
-            </button>
-          );
-        })}
+        {Object.entries(PRESETS)
+          .filter(([, p]) => !p.hidden)
+          .map(([k, p]) => {
+            // highlighted while the routine is exactly that preset (any edit clears it)
+            const on = JSON.stringify(p.plan()) === planKey;
+            return (
+              <button
+                type="button"
+                key={k}
+                title={p.hint}
+                aria-pressed={on}
+                onClick={() => setPlan(() => p.plan())}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all ${on ? "border-foreground bg-foreground text-background" : "hover:bg-secondary"}`}
+              >
+                {on && "✓ "}
+                {p.name}
+              </button>
+            );
+          })}
         <button
           type="button"
           onClick={() => setPlan(() => emptyPlan())}
           className="rounded-full border px-2.5 py-1 text-[10px] text-muted-foreground hover:bg-secondary"
         >
-          Limpar
+          Montar do zero
         </button>
       </div>
+      <p className="mt-1.5 text-[10px] text-muted-foreground">
+        {Object.values(PRESETS).find((p) => !p.hidden && JSON.stringify(p.plan()) === planKey)
+          ?.hint ?? "Escolha um modelo comum ou monte o seu, dia a dia."}
+      </p>
 
       {!pro && (
         <button
