@@ -50,24 +50,18 @@ export function onOpenFeedback(fn: (ctx: FeedbackContext) => void) {
 }
 
 const env = import.meta.env as Record<string, string | undefined>;
-const DB_URL = env["VITE_SUPABASE_URL"];
-const DB_KEY = env["VITE_SUPABASE_PUBLISHABLE_KEY"] ?? env["VITE_SUPABASE_ANON_KEY"];
 
 /** the form only shows up once the Lovable Cloud connection exists, so it never pretends to send */
-export const FEEDBACK_ENABLED = !!(DB_URL && DB_KEY);
+export const FEEDBACK_ENABLED = !!(
+  env["VITE_SUPABASE_URL"] && env["VITE_SUPABASE_PUBLISHABLE_KEY"]
+);
 
 /** writes one row to public.feedback (RLS: insert only, nobody can read it from the app) */
 export async function sendFeedback(p: FeedbackPayload): Promise<void> {
-  if (!DB_URL || !DB_KEY) throw new Error("feedback sem banco");
-  const res = await fetch(`${DB_URL}/rest/v1/feedback`, {
-    method: "POST",
-    headers: {
-      apikey: DB_KEY,
-      Authorization: `Bearer ${DB_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify({
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { error } = await supabase
+    .from("feedback")
+    .insert({
       screen: p.screen,
       item: p.item?.slice(0, 200) ?? null,
       kind: p.kind,
@@ -75,7 +69,7 @@ export async function sendFeedback(p: FeedbackPayload): Promise<void> {
       role: p.role ?? null,
       contact: p.contact?.slice(0, 120) ?? null,
       user_agent: navigator.userAgent.slice(0, 300),
-    }),
-  });
-  if (!res.ok) throw new Error(`feedback ${res.status}`);
+    })
+    .abortSignal(AbortSignal.timeout(15000));
+  if (error) throw new Error(error.message);
 }
