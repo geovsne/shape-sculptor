@@ -323,12 +323,14 @@ export function Atlas() {
             Atlas
           </span>
         </Link>
-        <Link
-          to="/editor"
-          className="glass rounded-full px-4 py-2 text-xs font-semibold tracking-wide"
-        >
-          Simulador →
-        </Link>
+        <nav className="flex gap-1.5">
+          <Link to="/raio-x" className="glass rounded-full px-3 py-2 text-xs font-semibold">
+            Raio-X
+          </Link>
+          <Link to="/editor" className="glass rounded-full px-3 py-2 text-xs font-semibold">
+            Simulador
+          </Link>
+        </nav>
       </header>
 
       <div className="sticky top-0 z-20 flex flex-col border-b bg-background lg:absolute lg:inset-0 lg:z-auto lg:border-0 lg:bg-transparent">

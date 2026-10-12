@@ -34,6 +34,7 @@ import {
 } from "@/lib/sim";
 import { RoutineEditor } from "./sim/RoutineEditor";
 import { DietPanel } from "./sim/ProPanels";
+import { HANDOFF_KEY } from "@/lib/raiox";
 import { StatusPanel } from "./sim/StatusPanel";
 import { MiniMap } from "./sim/MiniMap";
 import { Pill, RangeField } from "./sim/ui";
@@ -102,6 +103,19 @@ export function Studio() {
   const [profile, setProfile] = useState<Profile>(saved.profile ?? DEFAULT_PROFILE);
   const [sim, setSim] = useState<SimState | null>(saved.sim ?? null);
   const [plan, setPlanState] = useState<Plan>(saved.plan ?? PRESETS["upperLower"]!.plan());
+  // a day built in the Raio-X arrives here as Monday's workout
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(HANDOFF_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(HANDOFF_KEY);
+      const items = JSON.parse(raw) as Plan[number];
+      if (Array.isArray(items) && items.length)
+        setPlanState((p) => p.map((d, i) => (i === 0 ? items : d)));
+    } catch {
+      /* ignore a broken hand-off */
+    }
+  }, []);
   const setPlan = (fn: (p: Plan) => Plan) => setPlanState(fn);
   const [tab, setTab] = useState<Tab>("rotina");
   const [pro, setPro] = useState(saved.pro ?? false);
@@ -246,19 +260,19 @@ export function Studio() {
           </div>
         </Link>
         <div className="glass order-3 flex w-full gap-1 rounded-full p-1 lg:order-2 lg:w-auto">
-          {(["sim", "explore"] as const).map((k) => (
-            <button
-              type="button"
-              key={k}
-              onClick={() => {
-                setMode(k);
-                if (k === "explore") setSkin(0);
-              }}
-              className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition-all lg:flex-none lg:px-5 ${mode === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {k === "explore" ? "Explorar músculos" : "Simulador"}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setMode("sim")}
+            className="flex-1 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background lg:flex-none lg:px-5"
+          >
+            Simulador
+          </button>
+          <Link
+            to="/raio-x"
+            className="flex-1 rounded-full px-4 py-2 text-center text-sm font-medium text-muted-foreground transition-all hover:text-foreground lg:flex-none lg:px-5"
+          >
+            Raio-X do exercício
+          </Link>
         </div>
         <button
           type="button"

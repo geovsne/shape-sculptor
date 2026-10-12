@@ -150,13 +150,19 @@ export function Landing() {
             </a>
             <Link
               to="/atlas"
-              className="rounded-full border border-foreground/80 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background"
+              className="rounded-full border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background sm:px-4 sm:text-sm"
             >
               Atlas
             </Link>
             <Link
+              to="/raio-x"
+              className="rounded-full border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background sm:px-4 sm:text-sm"
+            >
+              Raio-X
+            </Link>
+            <Link
               to="/editor"
-              className="rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background"
+              className="rounded-full border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background sm:px-4 sm:text-sm"
             >
               Simulador
             </Link>
@@ -171,27 +177,40 @@ export function Landing() {
               Anatomia · Treino · Simulação
             </div>
             <h1 className="mt-4 font-display text-5xl font-bold leading-[0.95] tracking-tighter text-balance sm:text-7xl">
-              Monte a semana.
+              O corpo em 3D.
               <br />
-              <span className="text-primary">Veja o corpo responder.</span>
+              <span className="text-primary">Do estudo ao treino.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              Sua rotina vira um avatar 3D que cresce onde você treina, recupera nas folgas e se
-              machuca quando passa do limite.
+              Estude a anatomia, entenda o que cada exercício trabalha e simule como o corpo
+              responde à sua semana de treino.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                to="/editor"
-                className="rounded-full bg-primary px-7 py-4 font-display font-semibold text-primary-foreground shadow-[var(--shadow-primary)] transition-transform hover:scale-[1.02]"
-              >
-                Montar meu treino →
-              </Link>
-              <a
-                href="#pro"
-                className="rounded-full border px-7 py-4 font-display font-semibold hover:bg-secondary"
-              >
-                Conhecer o PRO
-              </a>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {(
+                [
+                  ["/atlas", "Atlas", "Anatomia completa em português e latim."],
+                  [
+                    "/raio-x",
+                    "Raio-X do exercício",
+                    "O que cada exercício pega, músculo por músculo.",
+                  ],
+                  ["/editor", "Simulador", "Monte a semana e veja o avatar evoluir."],
+                ] as const
+              ).map(([to, t, d]) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="group rounded-[22px] border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-foreground/40"
+                >
+                  <div className="flex items-center justify-between font-display text-base font-semibold">
+                    {t}
+                    <span className="text-muted-foreground transition-transform group-hover:translate-x-0.5">
+                      →
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{d}</p>
+                </Link>
+              ))}
             </div>
           </div>
           <div className="hidden lg:block">
@@ -223,6 +242,44 @@ export function Landing() {
             className="mt-6 inline-flex rounded-full border px-6 py-3 font-display text-sm font-semibold hover:bg-secondary"
           >
             Abrir o Atlas →
+          </Link>
+        </Section>
+
+        <Section
+          id="raio-x"
+          eyebrow="Raio-X do exercício · grátis"
+          title="Saiba o que o seu exercício está pegando."
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              [
+                "Exercício → músculos",
+                "Principais e sinergistas marcados no 3D, com o quanto cada parte trabalha.",
+              ],
+              [
+                "Músculo → exercícios",
+                "Toque no músculo e veja os melhores exercícios, por equipamento.",
+              ],
+              [
+                "Comparar",
+                "Dois exercícios lado a lado: supino reto contra inclinado, por exemplo.",
+              ],
+              [
+                "Treino do dia",
+                "Escolha os músculos e receba exercícios que cobrem cada parte deles.",
+              ],
+            ].map(([t, d]) => (
+              <div key={t} className="rounded-[24px] bg-card p-5">
+                <div className="font-display text-lg font-semibold">{t}</div>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{d}</p>
+              </div>
+            ))}
+          </div>
+          <Link
+            to="/raio-x"
+            className="mt-6 inline-flex rounded-full border px-6 py-3 font-display text-sm font-semibold hover:bg-secondary"
+          >
+            Abrir o Raio-X →
           </Link>
         </Section>
 

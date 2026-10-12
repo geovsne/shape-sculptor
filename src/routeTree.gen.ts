@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AtlasRouteImport } from './routes/atlas'
 import { Route as EditorRouteImport } from './routes/editor'
+import { Route as RaioXRouteImport } from './routes/raio-x'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const EditorRoute = EditorRouteImport.update({
   path: '/editor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RaioXRoute = RaioXRouteImport.update({
+  id: '/raio-x',
+  path: '/raio-x',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/atlas': typeof AtlasRoute
   '/editor': typeof EditorRoute
+  '/raio-x': typeof RaioXRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/atlas': typeof AtlasRoute
   '/editor': typeof EditorRoute
+  '/raio-x': typeof RaioXRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/atlas': typeof AtlasRoute
   '/editor': typeof EditorRoute
+  '/raio-x': typeof RaioXRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/atlas' | '/editor'
+  fullPaths: '/' | '/atlas' | '/editor' | '/raio-x'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/atlas' | '/editor'
-  id: '__root__' | '/' | '/atlas' | '/editor'
+  to: '/' | '/atlas' | '/editor' | '/raio-x'
+  id: '__root__' | '/' | '/atlas' | '/editor' | '/raio-x'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AtlasRoute: typeof AtlasRoute
   EditorRoute: typeof EditorRoute
+  RaioXRoute: typeof RaioXRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EditorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/raio-x': {
+      id: '/raio-x'
+      path: '/raio-x'
+      fullPath: '/raio-x'
+      preLoaderRoute: typeof RaioXRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AtlasRoute: AtlasRoute,
   EditorRoute: EditorRoute,
+  RaioXRoute: RaioXRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

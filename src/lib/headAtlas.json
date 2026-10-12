@@ -1,0 +1,148 @@
+{
+"chest_lower": [
+"(Abdominal part of pectoralis major muscle)"
+],
+"fore_ext": [
+"Abductor pollicis longus",
+"Extensor carpi radialis brevis",
+"Extensor carpi radialis longus",
+"Extensor digiti minimi",
+"Extensor digitorum",
+"Extensor pollicis brevis",
+"Extensor pollicis longus",
+"Humeral head of extensor carpi ulnaris",
+"Supinator",
+"Ulnar head of extensor carpi ulnaris"
+],
+"delt_side": [
+"Acromial part of deltoid muscle",
+"Supraspinatus muscle"
+],
+"triceps_medial": [
+"Anconeus muscle",
+"Medial head of triceps brachii"
+],
+"traps_upper": [
+"Ascending part of trapezius muscle",
+"Levator scapulae"
+],
+"brachialis": [
+"Brachialis muscle"
+],
+"brachioradialis": [
+"Brachioradialis muscle"
+],
+"chest_upper": [
+"Clavicular head of pectoralis major muscle"
+],
+"delt_front": [
+"Clavicular part of deltoid muscle"
+],
+"fore_flex": [
+"Deep head of pronator teres",
+"Flexor carpi radialis",
+"Flexor digitorum profundus",
+"Flexor pollicis longus",
+"Humeral head of flexor carpi ulnaris",
+"Humero-ulnar head of flexor digitorum superficialis",
+"Palmaris longus muscle",
+"Radial head of flexor digitorum superficialis",
+"Superficial head of pronator teres",
+"Ulnar head of flexor carpi ulnaris"
+],
+"traps_lower": [
+"Descending part of trapezius muscle"
+],
+"obl": [
+"External abdominal oblique muscle",
+"Internal abdominal oblique muscle"
+],
+"glute_max": [
+"Gluteus maximus muscle"
+],
+"glute_med": [
+"Gluteus medius muscle",
+"Gluteus minimus muscle",
+"Tensor fasciae latae"
+],
+"erectors": [
+"Iliocostalis lumborum muscle",
+"Iliocostalis thoracis muscle",
+"Longissimus thoracis muscle",
+"Multifidus lumborum muscle",
+"Quadratus lumborum muscle",
+"Spinalis thoracis muscle"
+],
+"delt_rear": [
+"Infraspinatus muscle",
+"Scapular spinal part of deltoid muscle",
+"Teres minor muscle"
+],
+"calf_gastro": [
+"Lateral head of gastrocnemius",
+"Medial head of gastrocnemius"
+],
+"triceps_lateral": [
+"Lateral head of triceps brachii"
+],
+"lats_upper": [
+"Latissimus dorsi muscle"
+],
+"biceps_long": [
+"Long head of biceps brachii"
+],
+"ham_bfl": [
+"Long head of biceps femoris"
+],
+"triceps_long": [
+"Long head of triceps brachii"
+],
+"chest_mid": [
+"Pectoralis minor muscle",
+"Sternocostal head of pectoralis major muscle"
+],
+"abs_lower": [
+"Pyramidalis muscle"
+],
+"abs_upper": [
+"Rectus abdominis muscle"
+],
+"quad_rf": [
+"Rectus femoris muscle"
+],
+"traps_mid": [
+"Rhomboid major muscle",
+"Rhomboid minor muscle",
+"Transverse part of trapezius muscle"
+],
+"ham_sm": [
+"Semimembranosus muscle"
+],
+"ham_st": [
+"Semitendinosus muscle"
+],
+"serratus": [
+"Serratus anterior muscle"
+],
+"biceps_short": [
+"Short head of biceps brachii"
+],
+"ham_bfs": [
+"Short head of biceps femoris"
+],
+"calf_soleus": [
+"Soleus muscle"
+],
+"lats_teres": [
+"Teres major muscle"
+],
+"quad_vi": [
+"Vastus intermedius muscle"
+],
+"quad_vl": [
+"Vastus lateralis muscle"
+],
+"quad_vm": [
+"Vastus medialis muscle"
+]
+}
