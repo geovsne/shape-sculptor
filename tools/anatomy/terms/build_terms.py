@@ -12,7 +12,9 @@ OUT = os.path.join(HERE, "..", "..", "..", "public", "atlas")
 
 import organs  # noqa: E402
 
-TABLES = {"organs": organs}
+import skin  # noqa: E402
+
+TABLES = {"organs": organs, "skin": skin}
 for system, mod in TABLES.items():
     parts = {}
     for en, pt, la, ta2, desc, src, _note in mod.ROWS:

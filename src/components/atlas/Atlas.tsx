@@ -12,6 +12,7 @@ import {
   SIDE_LABEL,
   SYSTEMS,
   SYSTEM_LABEL,
+  TERMS_READY,
   loadLayer,
   loadTerms,
   type AtlasLayer,
@@ -577,9 +578,10 @@ export function Atlas() {
         )}
         {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
         <p className="mt-6 text-[10px] leading-relaxed text-muted-foreground">
-          Órgãos já em português, com latim da Terminologia Anatomica (FIPAT, 2019) e descrição. Os
-          demais sistemas ainda em inglês anatômico; português e quiz chegam em breve. Modelos:
-          Z-Anatomy (CC BY-SA 4.0), baseado em BodyParts3D.
+          Em português, com latim da Terminologia Anatomica (FIPAT, 2019) e descrição:{" "}
+          {TERMS_READY.map((s) => SYSTEM_LABEL[s].toLowerCase()).join(", ")}. Os demais sistemas
+          ainda em inglês anatômico; português e quiz chegam em breve. Modelos: Z-Anatomy (CC BY-SA
+          4.0), baseado em BodyParts3D.
         </p>
       </aside>
     </div>

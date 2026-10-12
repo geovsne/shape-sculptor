@@ -99,7 +99,7 @@ export type Term = { pt: string; la: string; ta2: number | null; d: string; src:
 export type Terms = { parts: Record<string, Term>; groups: Record<string, string> };
 
 /** systems whose names were already reviewed (see tools/anatomy/terms) */
-export const TERMS_READY: SystemId[] = ["organs"];
+export const TERMS_READY: SystemId[] = ["organs", "skin"];
 
 export function loadTerms(system: SystemId): Promise<Terms> {
   if (!TERMS_READY.includes(system)) return Promise.resolve({ parts: {}, groups: {} });
