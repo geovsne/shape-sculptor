@@ -14,6 +14,28 @@ import trimesh
 
 SRC, OUT = sys.argv[1], sys.argv[2]
 meta = json.load(open(f"{SRC}/za_atlas.json"))
+
+# names that arrive broken from the source file: fixed by anatomy (position and group),
+# or dropped when the structure can't be identified
+RENAME = {
+    "????????": "Small cardiac vein",  # runs with the right coronary artery
+    "Inferior vein of left ventricle (//Posterior '')": "Posterior vein of left ventricle",
+    "Central canal'": "Central canal",
+}
+DROP = {"?x.r", "?x.l"}
+
+
+def clean(n):
+    n = RENAME.get(n, n)
+    n = re.sub(r"\.+(\.[lr])$", r"\1", n)  # "artery..r" -> "artery.r"
+    n = re.sub(r"\.+$", "", n).replace("'", "").strip()
+    return re.sub(r"\s+", " ", n)
+
+
+for m in meta:
+    m["drop"] = m["name"] in DROP
+    m["name"] = clean(m["name"])
+    m["base"] = re.sub(r"\.[lr]$", "", m["name"])
 raw = np.load(f"{SRC}/za_atlas.npz")
 
 # vertex budget per system (whole body), so phones can load each layer
@@ -47,7 +69,8 @@ def category(m):
 all_v = []
 groups = {}
 for i, m in enumerate(meta):
-    groups.setdefault(m["system"], []).append(i)
+    if not m["drop"]:
+        groups.setdefault(m["system"], []).append(i)
 
 # decimate and convert
 parts_out = {}
