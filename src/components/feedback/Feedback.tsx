@@ -2,6 +2,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Check, MessageSquare, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  FEEDBACK_ENABLED,
   KINDS,
   ROLES,
   SCREEN_LABEL,
@@ -16,6 +17,7 @@ import {
 
 /** header button, same on every screen */
 export function FeedbackButton({ screen }: { screen: FeedbackScreen }) {
+  if (!FEEDBACK_ENABLED) return null;
   return (
     <button
       type="button"
@@ -39,6 +41,7 @@ export function FeedbackLink({
   item: string;
   children: React.ReactNode;
 }) {
+  if (!FEEDBACK_ENABLED) return null;
   return (
     <button
       type="button"
@@ -57,6 +60,10 @@ const chip = (on: boolean) =>
 
 /** single form, mounted once at the root and opened through openFeedback() */
 export function FeedbackDialog() {
+  return FEEDBACK_ENABLED ? <FeedbackForm /> : null;
+}
+
+function FeedbackForm() {
   const [ctx, setCtx] = useState<FeedbackContext | null>(null);
   const [kind, setKind] = useState<FeedbackKind>("erro");
   const [message, setMessage] = useState("");
