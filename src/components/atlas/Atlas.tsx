@@ -331,49 +331,52 @@ export function Atlas() {
         </Link>
       </header>
 
-      <div className="sticky top-0 z-20 h-[56vh] border-b bg-background lg:absolute lg:border-0 lg:inset-0 lg:z-auto lg:h-auto lg:bg-transparent">
-        <Canvas dpr={[1, SMALL ? 1.5 : 2]} camera={{ position: HOME.cam.toArray(), fov: 32 }}>
-          <ambientLight intensity={0.6} />
-          <directionalLight position={[2, 4, 3]} intensity={1.6} />
-          <directionalLight position={[-3, 2, -2]} intensity={0.8} color="#cfe3ff" />
-          <StudioEnvironment />
-          {SYSTEMS.map((s) => {
-            const ly = layers[s];
-            if (!ly || !on[s]) return null;
-            if (isolate && pick && pick.system !== s) return null;
-            return (
-              <LayerMesh
-                key={s}
-                layer={ly}
-                picked={pick?.system === s ? pick.index : null}
-                isolate={isolate}
-                ghost={!isolate && ghostOf(s)}
-                hidden={hidden}
-                onPick={(index, through) => {
-                  if (through) return;
-                  setPick(index == null ? null : { system: s, index });
-                }}
-              />
-            );
-          })}
-          <ContactShadows position={[0, 0, 0]} opacity={0.3} scale={3} blur={2.4} far={1.5} />
-          <CameraFocus box={focusBox} />
-          <OrbitControls
-            makeDefault
-            target={HOME.target.toArray()}
-            enablePan
-            screenSpacePanning
-            minDistance={0.2}
-            maxDistance={4.5}
-          />
-        </Canvas>
-        {loading.length > 0 && (
-          <div className="glass absolute left-1/2 top-20 -translate-x-1/2 rounded-full px-4 py-1.5 text-xs">
-            Carregando {loading.map((s) => SYSTEM_LABEL[s].toLowerCase()).join(", ")}…
-          </div>
-        )}
+      <div className="sticky top-0 z-20 flex flex-col border-b bg-background lg:absolute lg:inset-0 lg:z-auto lg:border-0 lg:bg-transparent">
+        <div className="relative h-[52vh] flex-none lg:absolute lg:inset-0 lg:h-auto">
+          <Canvas dpr={[1, SMALL ? 1.5 : 2]} camera={{ position: HOME.cam.toArray(), fov: 32 }}>
+            <ambientLight intensity={0.6} />
+            <directionalLight position={[2, 4, 3]} intensity={1.6} />
+            <directionalLight position={[-3, 2, -2]} intensity={0.8} color="#cfe3ff" />
+            <StudioEnvironment />
+            {SYSTEMS.map((s) => {
+              const ly = layers[s];
+              if (!ly || !on[s]) return null;
+              if (isolate && pick && pick.system !== s) return null;
+              return (
+                <LayerMesh
+                  key={s}
+                  layer={ly}
+                  picked={pick?.system === s ? pick.index : null}
+                  isolate={isolate}
+                  ghost={!isolate && ghostOf(s)}
+                  hidden={hidden}
+                  onPick={(index, through) => {
+                    if (through) return;
+                    setPick(index == null ? null : { system: s, index });
+                  }}
+                />
+              );
+            })}
+            <ContactShadows position={[0, 0, 0]} opacity={0.3} scale={3} blur={2.4} far={1.5} />
+            <CameraFocus box={focusBox} />
+            <OrbitControls
+              makeDefault
+              target={HOME.target.toArray()}
+              enablePan
+              screenSpacePanning
+              minDistance={0.2}
+              maxDistance={4.5}
+            />
+          </Canvas>
+          {loading.length > 0 && (
+            <div className="glass absolute left-1/2 top-3 -translate-x-1/2 rounded-full lg:top-20 px-4 py-1.5 text-xs">
+              Carregando {loading.map((s) => SYSTEM_LABEL[s].toLowerCase()).join(", ")}…
+            </div>
+          )}
+        </div>
+        {/* the card sits under the 3D (right side on desktop) and opens downwards, so the body stays visible */}
         {part && (
-          <div className="glass absolute inset-x-3 bottom-3 z-10 rounded-2xl p-3 lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:w-[420px] lg:-translate-x-1/2">
+          <div className="glass z-10 mx-3 mb-3 rounded-2xl p-3 lg:absolute lg:right-6 lg:top-24 lg:m-0 lg:w-[380px]">
             <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               {pick ? SYSTEM_LABEL[pick.system] : ""}
               {pick && part.group ? ` · ${groupOf(pick.system, part)}` : ""}
@@ -421,7 +424,7 @@ export function Atlas() {
               )}
             </div>
             {term && open && (
-              <div className="mt-3 max-h-[34vh] overflow-y-auto border-t pt-3 text-sm leading-relaxed lg:max-h-[50vh]">
+              <div className="mt-3 max-h-[28vh] overflow-y-auto border-t pt-3 text-sm leading-relaxed lg:max-h-[55vh]">
                 <p className="text-xs text-muted-foreground">
                   <span className="italic">{term.la}</span>
                   {term.ta2 ? ` · TA2 ${term.ta2}` : ""}
