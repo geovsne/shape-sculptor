@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { BarChart3, ChevronRight, PersonStanding, ScanLine } from "lucide-react";
 import type { ReactNode } from "react";
 import { BottomTabs } from "@/components/shell/BottomTabs";
+import { ProfileLink } from "@/components/shell/ProfileLink";
 
 const WEEK = [
   { d: "Seg", label: "Superior", muscles: ["Peitoral", "Dorsal", "Ombros"] },
@@ -184,6 +185,7 @@ export function Landing() {
                 {m.short}
               </Link>
             ))}
+            <ProfileLink />
           </nav>
         </div>
       </header>

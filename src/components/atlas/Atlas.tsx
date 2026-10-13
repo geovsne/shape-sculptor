@@ -3,6 +3,7 @@ import { FeedbackButton, FeedbackLink } from "@/components/feedback/Feedback";
 import { Link } from "@tanstack/react-router";
 import { Check, Crosshair, Search, X } from "lucide-react";
 import { BottomTabs } from "@/components/shell/BottomTabs";
+import { ProfileLink } from "@/components/shell/ProfileLink";
 import { Sheet } from "@/components/shell/Sheet";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
@@ -592,6 +593,7 @@ export function Atlas() {
             Simulador
           </Link>
           <FeedbackButton screen="atlas" />
+          <ProfileLink />
         </nav>
       </header>
 

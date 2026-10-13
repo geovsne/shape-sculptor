@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AtlasRouteImport } from './routes/atlas'
 import { Route as EditorRouteImport } from './routes/editor'
+import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as RaioXRouteImport } from './routes/raio-x'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const EditorRoute = EditorRouteImport.update({
   path: '/editor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PerfilRoute = PerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RaioXRoute = RaioXRouteImport.update({
   id: '/raio-x',
   path: '/raio-x',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/atlas': typeof AtlasRoute
   '/editor': typeof EditorRoute
+  '/perfil': typeof PerfilRoute
   '/raio-x': typeof RaioXRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/atlas': typeof AtlasRoute
   '/editor': typeof EditorRoute
+  '/perfil': typeof PerfilRoute
   '/raio-x': typeof RaioXRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/atlas': typeof AtlasRoute
   '/editor': typeof EditorRoute
+  '/perfil': typeof PerfilRoute
   '/raio-x': typeof RaioXRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/atlas' | '/editor' | '/raio-x'
+  fullPaths: '/' | '/atlas' | '/editor' | '/perfil' | '/raio-x'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/atlas' | '/editor' | '/raio-x'
-  id: '__root__' | '/' | '/atlas' | '/editor' | '/raio-x'
+  to: '/' | '/atlas' | '/editor' | '/perfil' | '/raio-x'
+  id: '__root__' | '/' | '/atlas' | '/editor' | '/perfil' | '/raio-x'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AtlasRoute: typeof AtlasRoute
   EditorRoute: typeof EditorRoute
+  PerfilRoute: typeof PerfilRoute
   RaioXRoute: typeof RaioXRoute
 }
 
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EditorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/perfil': {
+      id: '/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof PerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/raio-x': {
       id: '/raio-x'
       path: '/raio-x'
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AtlasRoute: AtlasRoute,
   EditorRoute: EditorRoute,
+  PerfilRoute: PerfilRoute,
   RaioXRoute: RaioXRoute,
 }
 export const routeTree = rootRouteImport
