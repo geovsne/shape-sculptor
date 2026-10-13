@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { Head, Muscle, Profile } from "@/lib/training";
 import { HEADS, HEAD_IDS } from "@/lib/training";
@@ -26,7 +27,95 @@ export type BodyProps = {
   onPick?: (m: Muscle, h: Head | null) => void;
   /** colour of muscles outside the training groups (adductors, shin, neck...) */
   neutral?: string;
+  /** tags pinned to muscle heads, e.g. how much an exercise works them */
+  labels?: HeadLabel[];
 };
+export type HeadLabel = { head: Head; text: string; strong?: boolean };
+
+/**
+ * A point on each head (one per side) and the horizontal direction it faces from the body's axis.
+ * Thin muscles have normals pointing every way, so "which side of the body is it on" is the
+ * reliable test for whether the camera can see it.
+ */
+function headAnchors(m: BodyModel, pos: ArrayLike<number>) {
+  const out = new Map<string, { p: THREE.Vector3; n: THREE.Vector3 }>();
+  const acc = new Map<string, { p: THREE.Vector3; c: number }>();
+  let zc = 0;
+  const nv = m.muscle.head.length;
+  for (let i = 0; i < nv; i++) zc += pos[i * 3 + 2]!;
+  zc /= nv;
+  for (let i = 0; i < nv; i++) {
+    const hi = m.muscle.head[i]!;
+    if (hi >= 200) continue;
+    const x = pos[i * 3]!;
+    const key = `${m.header.heads[hi]}:${x < 0 ? "l" : "r"}`;
+    let a = acc.get(key);
+    if (!a) acc.set(key, (a = { p: new THREE.Vector3(), c: 0 }));
+    a.p.x += x;
+    a.p.y += pos[i * 3 + 1]!;
+    a.p.z += pos[i * 3 + 2]!;
+    a.c++;
+  }
+  for (const [k, a] of acc) {
+    const p = a.p.divideScalar(a.c);
+    out.set(k, { p, n: new THREE.Vector3(p.x, 0, p.z - zc).normalize() });
+  }
+  return out;
+}
+
+/** tags fade out when their muscle faces away from the camera */
+function HeadTags({
+  labels,
+  anchors,
+  scale,
+}: {
+  labels: HeadLabel[];
+  anchors: Map<string, { p: THREE.Vector3; n: THREE.Vector3 }>;
+  scale: number;
+}) {
+  const refs = useRef<(HTMLDivElement | null)[]>([]);
+  const items = labels
+    .map((l, i) => {
+      // alternate sides so neighbouring tags don't overlap
+      const a = anchors.get(`${l.head}:${i % 2 ? "l" : "r"}`) ?? anchors.get(`${l.head}:r`);
+      return a ? { ...l, a } : null;
+    })
+    .filter((x): x is HeadLabel & { a: { p: THREE.Vector3; n: THREE.Vector3 } } => !!x);
+  const w = new THREE.Vector3();
+  const nw = new THREE.Vector3();
+  useFrame(({ camera }) => {
+    items.forEach((it, i) => {
+      const el = refs.current[i];
+      if (!el) return;
+      w.copy(it.a.p);
+      nw.copy(it.a.n);
+      // the body sits at the origin unrotated, so local and world directions agree
+      // side-on muscles (deltoids) stay visible; only the far side of the body hides
+      const facing = nw.dot(camera.position.clone().sub(w.multiplyScalar(scale)).normalize()) > -0.3;
+      el.style.opacity = facing ? "1" : "0";
+    });
+  });
+  return (
+    <>
+      {items.map((it, i) => (
+        <Html key={it.head + i} position={it.a.p} center zIndexRange={[20, 0]}>
+          <div
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            className="pointer-events-none flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-card/95 px-2.5 py-1 font-body text-[12px] font-bold text-foreground shadow-[0_6px_16px_-8px_rgba(21,24,29,0.45)] transition-opacity duration-200"
+          >
+            <span
+              className="h-2 w-2 rounded-full bg-primary"
+              style={{ opacity: it.strong ? 1 : 0.5 }}
+            />
+            {it.text}
+          </div>
+        </Html>
+      ))}
+    </>
+  );
+}
 
 const INJURY_COLOR = new THREE.Color("#3a0606");
 const TENDON_INJURY_COLOR = new THREE.Color("#ffb020");
@@ -174,6 +263,7 @@ export function Body({
   tendonInjured = {},
   onPick,
   neutral = "#a5554c",
+  labels,
 }: BodyProps) {
   const group = useRef<THREE.Group>(null);
   const [model, setModel] = useState<BodyModel | null>(null);
@@ -192,6 +282,11 @@ export function Body({
   }, [sex]);
 
   const geo = useMemo(() => (model ? buildGeometries(model) : null), [model]);
+  const anchors = useMemo(() => {
+    if (!model || !geo) return null;
+    const pos = geo.muscle.getAttribute("position").array;
+    return headAnchors(model, pos);
+  }, [model, geo]);
   useEffect(
     () => () => {
       if (geo)
@@ -451,6 +546,9 @@ export function Body({
           <mesh geometry={geo.cap} material={mats.cap} raycast={() => null} renderOrder={3} />
           <mesh geometry={geo.hair} material={mats.hair} raycast={() => null} renderOrder={3} />
         </>
+      )}
+      {labels && labels.length > 0 && anchors && (
+        <HeadTags labels={labels} anchors={anchors} scale={s} />
       )}
     </group>
   );

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeedbackButton, FeedbackLink } from "@/components/feedback/Feedback";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeftRight, Search } from "lucide-react";
+import { BottomTabs } from "@/components/shell/BottomTabs";
+import { ProfileLink } from "@/components/shell/ProfileLink";
+import { Sheet } from "@/components/shell/Sheet";
+import type { HeadLabel } from "../anatomy/Body";
 import { Viewer } from "../anatomy/Viewer";
 import { initSim } from "@/lib/sim";
 import {
@@ -99,11 +104,7 @@ function Chip({
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-1.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-      {children}
-    </div>
-  );
+  return <div className="mb-1.5 text-[13px] font-semibold text-muted-foreground">{children}</div>;
 }
 
 /** searchable exercise list with an equipment filter */
@@ -144,7 +145,7 @@ function ExerciseList({ value, onPick }: { value: string | null; onPick: (id: st
           >
             <span className="min-w-0 truncate">{e.name}</span>
             <span
-              className={`flex-none text-[10px] uppercase tracking-wider ${value === e.id ? "opacity-70" : "text-muted-foreground"}`}
+              className={`flex-none text-xs ${value === e.id ? "opacity-70" : "text-muted-foreground"}`}
             >
               {e.equip}
             </span>
@@ -233,6 +234,8 @@ function Options({
 export function RaioX() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("exercicio");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [pick, setPick] = useState<Pick>({ exId: "bench" });
   const [rom, setRom] = useState<Rom>("full");
   const [muscle, setMuscle] = useState<Muscle | null>(null);
@@ -337,6 +340,25 @@ export function RaioX() {
     void navigate({ to: "/editor" });
   };
 
+  // exercise tab: the three muscles it works most, pinned on the body
+  const labels: HeadLabel[] =
+    tab !== "exercicio"
+      ? []
+      : MUSCLE_IDS.map((m) => {
+          const best = HEADS_OF[m]
+            .map((h) => ({ h, w: workOf(pick, h) }))
+            .sort((x, y) => y.w - x.w)[0];
+          return best && best.w > 0 ? { m, ...best } : null;
+        })
+          .filter((x): x is { m: Muscle; h: Head; w: number } => !!x)
+          .sort((x, y) => y.w - x.w)
+          .slice(0, 3)
+          .map((x) => ({
+            head: x.h,
+            text: `${MUSCLES[x.m].name} ${Math.round(Math.min(1, x.w) * 100)}%`,
+            strong: e.primary.includes(x.m),
+          }));
+
   const TABS: [Tab, string][] = [
     ["exercicio", "Exercício"],
     ["musculo", "Músculo"],
@@ -345,40 +367,79 @@ export function RaioX() {
   ];
 
   return (
-    <div className="relative min-h-screen w-full bg-background font-body text-foreground lg:h-screen lg:overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,var(--glow),transparent_60%)]" />
-      <header className="relative z-30 flex items-center justify-between gap-3 bg-background px-4 py-4 lg:absolute lg:inset-x-0 lg:top-0 lg:bg-transparent lg:px-8 lg:py-6">
-        <Link to="/" className="font-display text-2xl font-bold tracking-tight">
+    <div className="relative w-full bg-background font-body text-foreground max-lg:h-dvh max-lg:overflow-hidden lg:h-screen lg:overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_30%,var(--glow),transparent_60%)]" />
+      {/* phone: what is on screen, tap to change it */}
+      <div className="absolute inset-x-0 top-0 z-30 flex items-center gap-2 px-4 pt-[max(12px,env(safe-area-inset-top))] lg:hidden">
+        <button
+          type="button"
+          onClick={() => {
+            setTab(tab === "musculo" || tab === "treino" ? tab : "exercicio");
+            setPicking(true);
+            setSheetOpen(true);
+          }}
+          className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-full border bg-card px-4 text-left shadow-[0_8px_24px_-16px_rgba(21,24,29,0.4)]"
+        >
+          <Search className="h-[18px] w-[18px] flex-none text-muted-foreground" />
+          <span className="truncate text-[15px] font-bold">
+            {tab === "musculo"
+              ? muscle
+                ? MUSCLES[muscle].name
+                : "Escolha um músculo"
+              : tab === "treino"
+                ? "Treino do dia"
+                : tab === "comparar"
+                  ? "Comparar exercícios"
+                  : e.name}
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-label="Comparar exercícios"
+          onClick={() => {
+            setTab("comparar");
+            setSheetOpen(true);
+          }}
+          className="grid h-12 w-12 flex-none place-items-center rounded-full border bg-card"
+        >
+          <ArrowLeftRight className="h-5 w-5" />
+        </button>
+        <FeedbackButton screen="raio-x" />
+      </div>
+      <header className="absolute inset-x-0 top-0 z-30 hidden items-center justify-between px-8 py-6 lg:flex">
+        <Link to="/" className="font-display text-2xl font-extrabold tracking-tight">
           MYO<span className="text-primary">/</span>LAB
-          <span className="ml-2 hidden align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:inline">
+          <span className="ml-2 align-middle text-sm font-semibold text-muted-foreground">
             Raio-X
           </span>
         </Link>
-        <nav className="flex gap-1.5">
-          <Link to="/atlas" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
+        <nav className="flex gap-2">
+          <Link to="/atlas" className="glass rounded-full px-4 py-2 text-sm font-semibold">
             Atlas
           </Link>
-          <Link to="/editor" className="glass whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold">
+          <Link to="/editor" className="glass rounded-full px-4 py-2 text-sm font-semibold">
             Simulador
           </Link>
           <FeedbackButton screen="raio-x" />
+          <ProfileLink />
         </nav>
       </header>
 
-      <div className="sticky top-0 z-20 h-[46vh] border-b bg-background lg:absolute lg:inset-0 lg:z-auto lg:h-auto lg:border-0 lg:bg-transparent">
+      <div className="absolute inset-x-0 top-14 bottom-[calc(64px+env(safe-area-inset-bottom)+42dvh-28px)] lg:inset-0">
         <Viewer
           profile={body.profile}
           headDev={body.headDev}
           skin={0}
           neutral={NEUTRAL}
           colorFor={colorFor}
+          labels={labels}
           onPick={(m, h) => {
             setTab("musculo");
             setMuscle(m);
             setHead(h);
           }}
         />
-        <div className="pointer-events-none absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full bg-background/80 px-3 py-1 text-[10px] text-muted-foreground backdrop-blur lg:bottom-6">
+        <div className="pointer-events-none absolute bottom-2 left-1/2 hidden -translate-x-1/2 items-center gap-3 rounded-full bg-background/80 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur lg:bottom-6 lg:flex">
           {tab === "comparar" && cmpShow === "ambos" ? (
             <>
               <span className="flex items-center gap-1">
@@ -394,173 +455,168 @@ export function RaioX() {
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-col gap-4 p-4 lg:contents">
-        {/* left: what to look at */}
-        <aside className="glass flex flex-col rounded-[28px] p-5 lg:absolute lg:bottom-6 lg:left-6 lg:top-24 lg:w-[400px] lg:overflow-y-auto">
-          <h1 className="font-display text-2xl font-bold leading-none tracking-tight">
-            Raio-X do exercício
-          </h1>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Veja o que cada exercício trabalha, os melhores exercícios para cada músculo e monte o
-            treino do dia.
-          </p>
-          <div className="mt-4 grid grid-cols-4 gap-1 rounded-2xl bg-secondary p-1" role="tablist">
-            {TABS.map(([k, label]) => (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                key={k}
-                onClick={() => setTab(k)}
-                className={`rounded-xl px-1 py-2 text-[11px] font-semibold leading-tight transition-all ${tab === k ? "bg-background shadow-sm" : "text-muted-foreground"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+      <Sheet peek="42dvh" open={sheetOpen} onOpenChange={setSheetOpen} label="Raio-X">
+        <div className="flex flex-col gap-5 px-5 pb-8 pt-1 lg:contents">
+          {/* left: what to look at */}
+          <aside className="flex flex-col lg:border lg:bg-card/75 lg:backdrop-blur-xl lg:shadow-[0_30px_60px_-30px_rgba(21,24,29,0.25)] lg:absolute lg:bottom-6 lg:left-6 lg:top-24 lg:w-[400px] lg:overflow-y-auto lg:rounded-[28px] lg:p-5">
+            <h1 className="hidden font-display text-2xl font-bold leading-none tracking-tight lg:block">
+              Raio-X do exercício
+            </h1>
+            <p className="mt-1.5 hidden text-xs text-muted-foreground lg:block">
+              Veja o que cada exercício trabalha, os melhores exercícios para cada músculo e monte o
+              treino do dia.
+            </p>
+            <div
+              className="grid grid-cols-4 gap-1 rounded-2xl bg-secondary p-1 lg:mt-4"
+              role="tablist"
+            >
+              {TABS.map(([k, label]) => (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === k}
+                  key={k}
+                  onClick={() => setTab(k)}
+                  className={`rounded-xl px-1 py-2 text-[11px] font-semibold leading-tight transition-all ${tab === k ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-          <div className="mt-4">
-            {tab === "exercicio" && (
-              <ExerciseList
-                value={pick.exId}
-                onPick={(id) => {
-                  setPick({ exId: id });
-                  setRom("full");
-                }}
-              />
-            )}
-
-            {tab === "musculo" && (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-1">
-                  {MUSCLE_IDS.map((m) => (
-                    <Chip
-                      key={m}
-                      on={muscle === m}
-                      onClick={() => {
-                        setMuscle(m);
-                        setHead(null);
+            <div className="mt-4">
+              {tab === "exercicio" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPicking(!picking)}
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-full border bg-card text-sm font-bold lg:hidden"
+                  >
+                    {picking ? "Fechar a lista" : "Trocar exercício"}
+                  </button>
+                  <div className={picking ? "mt-3 lg:mt-0" : "hidden lg:block"}>
+                    <ExerciseList
+                      value={pick.exId}
+                      onPick={(id) => {
+                        setPick({ exId: id });
+                        setRom("full");
+                        setPicking(false);
+                        setSheetOpen(false);
                       }}
-                    >
-                      {MUSCLES[m].name}
-                    </Chip>
-                  ))}
-                </div>
-                {!muscle && (
-                  <p className="text-xs text-muted-foreground">
-                    Escolha um músculo aqui ou toque nele no corpo.
-                  </p>
-                )}
-              </div>
-            )}
+                    />
+                  </div>
+                </>
+              )}
 
-            {tab === "comparar" && (
-              <div className="space-y-3">
-                {(["a", "b"] as const).map((k) => {
-                  const p = k === "a" ? a : b;
-                  const set = k === "a" ? setA : setB;
-                  return (
-                    <div key={k} className="rounded-2xl bg-secondary/60 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div
-                            className={`text-[10px] font-bold uppercase tracking-[0.2em] ${k === "a" ? "text-primary" : "text-[#3b6fd8]"}`}
+              {tab === "musculo" && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-1">
+                    {MUSCLE_IDS.map((m) => (
+                      <Chip
+                        key={m}
+                        on={muscle === m}
+                        onClick={() => {
+                          setMuscle(m);
+                          setHead(null);
+                        }}
+                      >
+                        {MUSCLES[m].name}
+                      </Chip>
+                    ))}
+                  </div>
+                  {!muscle && (
+                    <p className="text-xs text-muted-foreground">
+                      Escolha um músculo aqui ou toque nele no corpo.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {tab === "comparar" && (
+                <div className="space-y-3">
+                  {(["a", "b"] as const).map((k) => {
+                    const p = k === "a" ? a : b;
+                    const set = k === "a" ? setA : setB;
+                    return (
+                      <div key={k} className="rounded-2xl bg-secondary/60 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div
+                              className={`text-[13px] font-bold ${k === "a" ? "text-primary" : "text-[#3b6fd8]"}`}
+                            >
+                              Exercício {k.toUpperCase()}
+                            </div>
+                            <div className="truncate text-sm font-semibold">
+                              {EX_BY_ID[p.exId]?.name}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">{optLabel(p)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCmpEdit(cmpEdit === k ? null : k)}
+                            className="flex-none rounded-full border bg-background px-3 py-1 text-xs font-semibold"
                           >
-                            Exercício {k.toUpperCase()}
-                          </div>
-                          <div className="truncate text-sm font-semibold">
-                            {EX_BY_ID[p.exId]?.name}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">{optLabel(p)}</div>
+                            {cmpEdit === k ? "Pronto" : "Trocar"}
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setCmpEdit(cmpEdit === k ? null : k)}
-                          className="flex-none rounded-full border bg-background px-3 py-1 text-xs font-semibold"
-                        >
-                          {cmpEdit === k ? "Pronto" : "Trocar"}
-                        </button>
+                        {cmpEdit === k && (
+                          <div className="mt-3 space-y-3">
+                            <ExerciseList value={p.exId} onPick={(id) => set({ exId: id })} />
+                            <Options pick={p} setPick={set} />
+                          </div>
+                        )}
                       </div>
-                      {cmpEdit === k && (
-                        <div className="mt-3 space-y-3">
-                          <ExerciseList value={p.exId} onPick={(id) => set({ exId: id })} />
-                          <Options pick={p} setPick={set} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                <div className="flex gap-1">
-                  {(["ambos", "a", "b"] as const).map((k) => (
-                    <Chip key={k} on={cmpShow === k} onClick={() => setCmpShow(k)}>
-                      {k === "ambos" ? "Ver os dois" : `Só ${k.toUpperCase()}`}
-                    </Chip>
-                  ))}
+                    );
+                  })}
+                  <div className="flex gap-1">
+                    {(["ambos", "a", "b"] as const).map((k) => (
+                      <Chip key={k} on={cmpShow === k} onClick={() => setCmpShow(k)}>
+                        {k === "ambos" ? "Ver os dois" : `Só ${k.toUpperCase()}`}
+                      </Chip>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {tab === "treino" && (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  Escolha os músculos que quer treinar hoje. O Raio-X escolhe exercícios que cobrem
-                  todas as partes de cada um.
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {MUSCLE_IDS.map((m) => (
-                    <Chip
-                      key={m}
-                      on={day.includes(m)}
-                      onClick={() =>
-                        setDay(day.includes(m) ? day.filter((x) => x !== m) : [...day, m])
-                      }
-                    >
-                      {day.includes(m) && "✓ "}
-                      {MUSCLES[m].name}
-                    </Chip>
-                  ))}
+              {tab === "treino" && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Escolha os músculos que quer treinar hoje. O Raio-X escolhe exercícios que
+                    cobrem todas as partes de cada um.
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {MUSCLE_IDS.map((m) => (
+                      <Chip
+                        key={m}
+                        on={day.includes(m)}
+                        onClick={() =>
+                          setDay(day.includes(m) ? day.filter((x) => x !== m) : [...day, m])
+                        }
+                      >
+                        {day.includes(m) && "✓ "}
+                        {MUSCLES[m].name}
+                      </Chip>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </aside>
+              )}
+            </div>
+          </aside>
 
-        {/* right: the answer */}
-        <aside className="glass rounded-[28px] p-5 lg:absolute lg:bottom-6 lg:right-6 lg:top-24 lg:w-[360px] lg:overflow-y-auto">
-          {tab === "exercicio" && (
-            <div className="space-y-4">
-              <div>
-                <Label>{e.equip}</Label>
-                <div className="font-display text-xl font-bold leading-tight">{e.name}</div>
-              </div>
-              <div>
-                <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold">
-                  <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Principais
+          {/* right: the answer */}
+          <aside className="lg:border lg:bg-card/75 lg:backdrop-blur-xl lg:shadow-[0_30px_60px_-30px_rgba(21,24,29,0.25)] lg:absolute lg:bottom-6 lg:right-6 lg:top-24 lg:w-[360px] lg:overflow-y-auto lg:rounded-[28px] lg:p-5">
+            {tab === "exercicio" && (
+              <div className="space-y-4">
+                <div>
+                  <Label>{e.equip}</Label>
+                  <div className="font-display text-xl font-bold leading-tight">{e.name}</div>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {e.primary.map((m) => (
-                    <button
-                      type="button"
-                      key={m}
-                      onClick={() => {
-                        setMuscle(m);
-                        setHead(null);
-                        setTab("musculo");
-                      }}
-                      className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary"
-                    >
-                      {MUSCLES[m].name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {e.secondary.length > 0 && (
                 <div>
                   <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold">
-                    <span className="h-2.5 w-2.5 rounded-full bg-primary/40" /> Sinergistas (ajudam)
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Principais
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {e.secondary.map((m) => (
+                    {e.primary.map((m) => (
                       <button
                         type="button"
                         key={m}
@@ -569,196 +625,221 @@ export function RaioX() {
                           setHead(null);
                           setTab("musculo");
                         }}
-                        className="rounded-full bg-secondary px-2.5 py-1 text-xs"
+                        className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary"
                       >
                         {MUSCLES[m].name}
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
-              <Options pick={pick} setPick={setPick} rom={rom} setRom={setRom} />
-              <div className="border-t pt-3">
-                <Label>Quanto pega em cada parte</Label>
-                <Bars rows={heads.map((h) => ({ h, a: workOf(pick, h) }))} />
-                <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-                  100% = o exercício é um dos que mais trabalham aquela parte. Sinergistas contam
-                  pela metade. Estimativa educativa a partir da literatura de ativação muscular.
-                </p>
-                <div className="mt-1.5">
-                  <FeedbackLink
-                    screen="raio-x"
-                    item={[e.name, optLabel(pick)].filter(Boolean).join(" · ")}
-                  >
-                    Esse número parece errado?
-                  </FeedbackLink>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {tab === "musculo" &&
-            (muscle ? (
-              <div className="space-y-4">
-                <div>
-                  <Label>{MUSCLES[muscle].region}</Label>
-                  <div className="font-display text-xl font-bold leading-tight">
-                    {MUSCLES[muscle].name}
-                  </div>
-                </div>
-                {HEADS_OF[muscle].length > 1 && (
-                  <div className="flex flex-wrap gap-1">
-                    <Chip on={!target} onClick={() => setHead(null)}>
-                      Todo
-                    </Chip>
-                    {HEADS_OF[muscle].map((h) => (
-                      <Chip key={h} on={target === h} onClick={() => setHead(h)}>
-                        {HEADS[h].short}
-                      </Chip>
-                    ))}
+                {e.secondary.length > 0 && (
+                  <div>
+                    <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold">
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary/40" /> Sinergistas
+                      (ajudam)
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {e.secondary.map((m) => (
+                        <button
+                          type="button"
+                          key={m}
+                          onClick={() => {
+                            setMuscle(m);
+                            setHead(null);
+                            setTab("musculo");
+                          }}
+                          className="rounded-full bg-secondary px-2.5 py-1 text-xs"
+                        >
+                          {MUSCLES[m].name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
-                <div>
-                  <Label>
-                    Melhores exercícios {target ? `para ${HEADS[target].name.toLowerCase()}` : ""}
-                  </Label>
-                  <div className="mb-2 flex flex-wrap gap-1">
-                    {EQUIPS.map((q) => (
-                      <Chip key={q} on={mEquip === q} onClick={() => setMEquip(q)}>
-                        {q}
+                <Options pick={pick} setPick={setPick} rom={rom} setRom={setRom} />
+                <div className="border-t pt-3">
+                  <Label>Quanto pega em cada parte</Label>
+                  <Bars rows={heads.map((h) => ({ h, a: workOf(pick, h) }))} />
+                  <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                    100% = o exercício é um dos que mais trabalham aquela parte. Sinergistas contam
+                    pela metade. Estimativa educativa a partir da literatura de ativação muscular.
+                  </p>
+                  <div className="mt-1.5">
+                    <FeedbackLink
+                      screen="raio-x"
+                      item={[e.name, optLabel(pick)].filter(Boolean).join(" · ")}
+                    >
+                      Esse número parece errado?
+                    </FeedbackLink>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tab === "musculo" &&
+              (muscle ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label>{MUSCLES[muscle].region}</Label>
+                    <div className="font-display text-xl font-bold leading-tight">
+                      {MUSCLES[muscle].name}
+                    </div>
+                  </div>
+                  {HEADS_OF[muscle].length > 1 && (
+                    <div className="flex flex-wrap gap-1">
+                      <Chip on={!target} onClick={() => setHead(null)}>
+                        Todo
                       </Chip>
-                    ))}
-                  </div>
-                  <div className="space-y-0.5">
-                    {ranked.map((r) => (
-                      <button
-                        type="button"
-                        key={r.exId}
-                        onClick={() => openExercise(r)}
-                        className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs hover:bg-secondary"
-                      >
-                        <span className="min-w-0">
-                          {EX_BY_ID[r.exId]?.name}
-                          {r.label && <span className="text-muted-foreground"> · {r.label}</span>}
-                        </span>
-                        <span className="flex-none tabular-nums text-muted-foreground">
-                          {Math.round(r.w * 100)}%
-                        </span>
-                      </button>
-                    ))}
-                    {ranked.length === 0 && (
-                      <p className="px-3 text-xs text-muted-foreground">
-                        Nenhum exercício com esse equipamento.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="border-t pt-3">
-                  <Label>Ficha anatômica</Label>
-                  <div className="space-y-3">
-                    {sheet(muscle, target)
-                      .slice(0, 4)
-                      .map((t) => (
-                        <div key={t.la}>
-                          <div className="text-sm font-semibold">{t.pt}</div>
-                          <div className="text-[11px] italic text-muted-foreground">{t.la}</div>
-                          <p className="mt-1 text-xs leading-relaxed">{t.d}</p>
-                        </div>
+                      {HEADS_OF[muscle].map((h) => (
+                        <Chip key={h} on={target === h} onClick={() => setHead(h)}>
+                          {HEADS[h].short}
+                        </Chip>
                       ))}
-                    {!terms && <p className="text-xs text-muted-foreground">Carregando…</p>}
+                    </div>
+                  )}
+                  <div>
+                    <Label>
+                      Melhores exercícios {target ? `para ${HEADS[target].name.toLowerCase()}` : ""}
+                    </Label>
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {EQUIPS.map((q) => (
+                        <Chip key={q} on={mEquip === q} onClick={() => setMEquip(q)}>
+                          {q}
+                        </Chip>
+                      ))}
+                    </div>
+                    <div className="space-y-0.5">
+                      {ranked.map((r) => (
+                        <button
+                          type="button"
+                          key={r.exId}
+                          onClick={() => openExercise(r)}
+                          className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs hover:bg-secondary"
+                        >
+                          <span className="min-w-0">
+                            {EX_BY_ID[r.exId]?.name}
+                            {r.label && <span className="text-muted-foreground"> · {r.label}</span>}
+                          </span>
+                          <span className="flex-none tabular-nums text-muted-foreground">
+                            {Math.round(r.w * 100)}%
+                          </span>
+                        </button>
+                      ))}
+                      {ranked.length === 0 && (
+                        <p className="px-3 text-xs text-muted-foreground">
+                          Nenhum exercício com esse equipamento.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <Link
-                    to="/atlas"
-                    className="mt-3 inline-block text-xs font-semibold text-primary hover:underline"
-                  >
-                    Estudar no Atlas →
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Toque num músculo do corpo ou escolha na lista.
-              </p>
-            ))}
-
-          {tab === "comparar" && (
-            <div className="space-y-3">
-              <Label>Quanto cada um pega</Label>
-              <div className="flex gap-3 text-[10px]">
-                <span className="flex items-center gap-1">
-                  <i className="h-2 w-2 rounded-full bg-primary" />A · {EX_BY_ID[a.exId]?.name}
-                </span>
-              </div>
-              <div className="flex gap-3 text-[10px]">
-                <span className="flex items-center gap-1">
-                  <i className="h-2 w-2 rounded-full bg-[#3b6fd8]" />B · {EX_BY_ID[b.exId]?.name}
-                </span>
-              </div>
-              <Bars
-                rows={[...new Set([...exHeads(a), ...exHeads(b)])]
-                  .map((h) => ({ h, a: workOf(a, h), b: workOf(b, h) }))
-                  .sort((x, y) => Math.max(y.a, y.b) - Math.max(x.a, x.b))}
-              />
-            </div>
-          )}
-
-          {tab === "treino" &&
-            (day.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Escolha ao lado os músculos de hoje, por exemplo peitoral, deltoide lateral e
-                tríceps.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <Label>Treino sugerido · {plan.items.length} exercícios</Label>
-                  <div className="space-y-1.5">
-                    {plan.items.map((i) => (
-                      <button
-                        type="button"
-                        key={i.exId}
-                        onClick={() => openExercise(i)}
-                        className="flex w-full items-center justify-between gap-2 rounded-2xl bg-secondary px-3 py-2.5 text-left"
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold">
-                            {EX_BY_ID[i.exId]?.name}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {MUSCLES[i.for].name}
-                            {i.label && ` · ${i.label}`}
-                          </span>
-                        </span>
-                        <span className="flex-none text-xs font-semibold tabular-nums">
-                          {i.sets} × {i.reps}
-                        </span>
-                      </button>
-                    ))}
+                  <div className="border-t pt-3">
+                    <Label>Ficha anatômica</Label>
+                    <div className="space-y-3">
+                      {sheet(muscle, target)
+                        .slice(0, 4)
+                        .map((t) => (
+                          <div key={t.la}>
+                            <div className="text-sm font-semibold">{t.pt}</div>
+                            <div className="text-[11px] italic text-muted-foreground">{t.la}</div>
+                            <p className="mt-1 text-xs leading-relaxed">{t.d}</p>
+                          </div>
+                        ))}
+                      {!terms && <p className="text-xs text-muted-foreground">Carregando…</p>}
+                    </div>
+                    <Link
+                      to="/atlas"
+                      className="mt-3 inline-block text-xs font-semibold text-primary hover:underline"
+                    >
+                      Estudar no Atlas →
+                    </Link>
                   </div>
                 </div>
-                <div className="border-t pt-3">
-                  <Label>Cobertura de cada parte</Label>
-                  <Bars
-                    rows={day
-                      .flatMap((m) => HEADS_OF[m])
-                      .map((h) => ({ h, a: plan.cover[h] ?? 0 }))}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={sendToSim}
-                  className="w-full rounded-full bg-foreground py-3 text-sm font-semibold text-background"
-                >
-                  Levar para o simulador (segunda-feira)
-                </button>
-                <p className="text-[10px] text-muted-foreground">
-                  Sugestão educativa: 3 séries, intensidade moderada. Ajuste com seu profissional de
-                  educação física.
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Toque num músculo do corpo ou escolha na lista.
                 </p>
+              ))}
+
+            {tab === "comparar" && (
+              <div className="space-y-3">
+                <Label>Quanto cada um pega</Label>
+                <div className="flex gap-3 text-[10px]">
+                  <span className="flex items-center gap-1">
+                    <i className="h-2 w-2 rounded-full bg-primary" />A · {EX_BY_ID[a.exId]?.name}
+                  </span>
+                </div>
+                <div className="flex gap-3 text-[10px]">
+                  <span className="flex items-center gap-1">
+                    <i className="h-2 w-2 rounded-full bg-[#3b6fd8]" />B · {EX_BY_ID[b.exId]?.name}
+                  </span>
+                </div>
+                <Bars
+                  rows={[...new Set([...exHeads(a), ...exHeads(b)])]
+                    .map((h) => ({ h, a: workOf(a, h), b: workOf(b, h) }))
+                    .sort((x, y) => Math.max(y.a, y.b) - Math.max(x.a, x.b))}
+                />
               </div>
-            ))}
-        </aside>
-      </div>
+            )}
+
+            {tab === "treino" &&
+              (day.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Escolha ao lado os músculos de hoje, por exemplo peitoral, deltoide lateral e
+                  tríceps.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Treino sugerido · {plan.items.length} exercícios</Label>
+                    <div className="space-y-1.5">
+                      {plan.items.map((i) => (
+                        <button
+                          type="button"
+                          key={i.exId}
+                          onClick={() => openExercise(i)}
+                          className="flex w-full items-center justify-between gap-2 rounded-2xl bg-secondary px-3 py-2.5 text-left"
+                        >
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold">
+                              {EX_BY_ID[i.exId]?.name}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {MUSCLES[i.for].name}
+                              {i.label && ` · ${i.label}`}
+                            </span>
+                          </span>
+                          <span className="flex-none text-xs font-semibold tabular-nums">
+                            {i.sets} × {i.reps}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-t pt-3">
+                    <Label>Cobertura de cada parte</Label>
+                    <Bars
+                      rows={day
+                        .flatMap((m) => HEADS_OF[m])
+                        .map((h) => ({ h, a: plan.cover[h] ?? 0 }))}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={sendToSim}
+                    className="w-full rounded-full bg-foreground py-3 text-sm font-semibold text-background"
+                  >
+                    Levar para o simulador (segunda-feira)
+                  </button>
+                  <p className="text-[10px] text-muted-foreground">
+                    Sugestão educativa: 3 séries, intensidade moderada. Ajuste com seu profissional
+                    de educação física.
+                  </p>
+                </div>
+              ))}
+          </aside>
+        </div>
+      </Sheet>
+      <BottomTabs />
     </div>
   );
 }
