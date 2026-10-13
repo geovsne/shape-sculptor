@@ -55,7 +55,7 @@ export function DietPanel({
     return (
       <div className="space-y-3">
         <div className="rounded-2xl bg-secondary p-4">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">
             Alimentação de manutenção
           </div>
           <div className="mt-1 font-display text-3xl font-bold tabular-nums">{spend} kcal</div>
@@ -99,9 +99,7 @@ export function DietPanel({
     <div className="space-y-4">
       <div className="rounded-2xl bg-secondary p-4">
         <div className="flex items-baseline justify-between">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            {kcal} kcal por dia
-          </span>
+          <span className="text-xs font-semibold text-muted-foreground">{kcal} kcal por dia</span>
           <span className="text-[10px] text-muted-foreground">gasto ~{spend} kcal</span>
         </div>
         <div
@@ -249,7 +247,7 @@ export function HormonePanel({
       )}
       {(h.weeksOn > 0 || h.postWeeks > 0 || h.effects.length > 0) && (
         <div className="space-y-1.5">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">
             {h.weeksOn > 0
               ? `${h.weeksOn} semanas em uso`
               : h.postWeeks > 0

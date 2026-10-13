@@ -463,7 +463,15 @@ export type SimState = {
   injuries: Injury[];
   hormone: { level: HormoneLevel; weeksOn: number; postWeeks: number; effects: SideEffect[] };
   log: LogEntry[];
-  history: { week: number; weight: number; bf: number; lean: number; avg: number }[];
+  /** h: development of every head that week (HEAD_IDS order), for the timeline; older saves lack it */
+  history: {
+    week: number;
+    weight: number;
+    bf: number;
+    lean: number;
+    avg: number;
+    h?: number[];
+  }[];
   last?: WeekReport;
 };
 
@@ -570,7 +578,16 @@ export function initSim(p: Profile): SimState {
     injuries: [],
     hormone: { level: "nenhum", weeksOn: 0, postWeeks: 0, effects: [] },
     log: [],
-    history: [{ week: 0, weight: p.weight, bf: p.bf, lean: round1(p.weight - fatKg), avg: base }],
+    history: [
+      {
+        week: 0,
+        weight: p.weight,
+        bf: p.bf,
+        lean: round1(p.weight - fatKg),
+        avg: base,
+        h: HEAD_IDS.map(() => Math.round(base * 1000) / 1000),
+      },
+    ],
   };
 }
 
@@ -1233,7 +1250,14 @@ export function advanceWeek(s: SimState, plan: Plan, o: Options): SimState {
     log: [...log.reverse(), ...s.log].slice(0, 60),
     history: [
       ...s.history,
-      { week: wk, weight: profile.weight, bf: profile.bf, lean: round1(leanKg), avg },
+      {
+        week: wk,
+        weight: profile.weight,
+        bf: profile.bf,
+        lean: round1(leanKg),
+        avg,
+        h: HEAD_IDS.map((x) => Math.round(hdev[x] * 1000) / 1000),
+      },
     ],
     last: {
       kcal: n.kcal,

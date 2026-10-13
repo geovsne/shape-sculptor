@@ -58,7 +58,7 @@ function Figure({
           );
         })}
       </svg>
-      <figcaption className="mt-1 text-center text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+      <figcaption className="mt-1 text-center text-xs font-semibold text-muted-foreground">
         {label}
       </figcaption>
     </figure>

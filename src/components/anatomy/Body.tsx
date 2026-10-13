@@ -91,7 +91,8 @@ function HeadTags({
       nw.copy(it.a.n);
       // the body sits at the origin unrotated, so local and world directions agree
       // side-on muscles (deltoids) stay visible; only the far side of the body hides
-      const facing = nw.dot(camera.position.clone().sub(w.multiplyScalar(scale)).normalize()) > -0.3;
+      const facing =
+        nw.dot(camera.position.clone().sub(w.multiplyScalar(scale)).normalize()) > -0.3;
       el.style.opacity = facing ? "1" : "0";
     });
   });

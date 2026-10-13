@@ -44,9 +44,7 @@ export function ExercisePicker({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              {dayLabel}
-            </div>
+            <div className="text-xs font-semibold text-muted-foreground">{dayLabel}</div>
             <h3 className="font-display text-2xl font-bold tracking-tight">Adicionar exercício</h3>
           </div>
           <button
@@ -108,7 +106,7 @@ export function ExercisePicker({
                     ` · apoio: ${e.secondary.map((m) => MUSCLES[m].name).join(", ")}`}
                 </span>
               </span>
-              <span className="flex-none text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="flex-none text-xs font-semibold text-muted-foreground">
                 {e.equip}
               </span>
             </button>

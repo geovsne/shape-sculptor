@@ -21,7 +21,7 @@ function Delta({ v, unit, invert }: { v: number; unit: string; invert?: boolean 
   return (
     <span className={`ml-1 text-[10px] font-semibold ${tone}`}>
       {v > 0 ? "+" : ""}
-      {v.toFixed(1)}
+      {v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
       {unit}
     </span>
   );
@@ -39,15 +39,13 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
     <div className="space-y-5">
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Semana</div>
+          <div className="text-xs font-semibold text-muted-foreground">Semana</div>
           <div className="font-display text-6xl font-bold leading-none tracking-tighter tabular-nums">
             {String(sim.week).padStart(2, "0")}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Energia
-          </div>
+          <div className="text-xs font-semibold text-muted-foreground">Energia</div>
           <div
             className={`font-display text-2xl font-bold tabular-nums ${sim.energy < 35 ? "text-destructive" : ""}`}
           >
@@ -64,9 +62,21 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
 
       <div className="grid grid-cols-3 gap-2 text-center">
         {[
-          ["Peso", `${sim.profile.weight}`, "kg", prev ? cur.weight - prev.weight : 0, null],
-          ["BF", `${sim.profile.bf}`, "%", prev ? cur.bf - prev.bf : 0, true],
-          ["Massa magra", `${sim.leanKg}`, "kg", prev ? cur.lean - prev.lean : 0, false],
+          [
+            "Peso",
+            sim.profile.weight.toLocaleString("pt-BR"),
+            "kg",
+            prev ? cur.weight - prev.weight : 0,
+            null,
+          ],
+          ["BF", sim.profile.bf.toLocaleString("pt-BR"), "%", prev ? cur.bf - prev.bf : 0, true],
+          [
+            "Massa magra",
+            sim.leanKg.toLocaleString("pt-BR"),
+            "kg",
+            prev ? cur.lean - prev.lean : 0,
+            false,
+          ],
         ].map(([l, v, u, d, inv]) => (
           <div key={l as string} className="rounded-2xl bg-secondary px-1 py-2">
             <div className="text-[10px] text-muted-foreground">{l}</div>
@@ -106,9 +116,7 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
 
       {analysis.alerts.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Alertas da rotina
-          </div>
+          <div className="text-xs font-semibold text-muted-foreground">Alertas da rotina</div>
           {alerts.map((a, i) => (
             <AlertRow key={i} level={a.level}>
               {a.text}
@@ -128,7 +136,7 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
 
       {sim.injuries.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Lesões</div>
+          <div className="text-xs font-semibold text-muted-foreground">Lesões</div>
           {sim.injuries.map((i) => (
             <div key={i.id} className="rounded-xl bg-destructive/8 px-3 py-2">
               <div className="flex justify-between text-[11px]">
@@ -150,7 +158,7 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
       )}
 
       <div>
-        <div className="mb-2 flex justify-between text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="mb-2 flex justify-between text-xs font-semibold text-muted-foreground">
           <span>Desenvolvimento</span>
           <span>Séries/sem</span>
         </div>
@@ -220,7 +228,7 @@ export function StatusPanel({ sim, analysis }: { sim: SimState; analysis: Analys
 
       {sim.log.length > 0 && (
         <div className="space-y-1 border-t pt-3">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Diário</div>
+          <div className="text-xs font-semibold text-muted-foreground">Diário</div>
           {sim.log.slice(0, 12).map((l, i) => (
             <AlertRow key={i} level={l.level}>
               <span className="font-semibold">S{l.week}</span> {l.text}
