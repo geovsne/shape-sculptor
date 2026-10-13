@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
+import { BarChart3, ChevronRight, PersonStanding, ScanLine } from "lucide-react";
 import type { ReactNode } from "react";
+import { BottomTabs } from "@/components/shell/BottomTabs";
 
 const WEEK = [
   { d: "Seg", label: "Superior", muscles: ["Peitoral", "Dorsal", "Ombros"] },
@@ -16,7 +18,7 @@ function WeekMock() {
     <div className="glass rounded-[32px] p-5 sm:p-6">
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Semana</div>
+          <div className="text-xs font-semibold text-muted-foreground">Semana</div>
           <div className="font-display text-5xl font-bold leading-none tracking-tighter tabular-nums">
             08
           </div>
@@ -87,7 +89,7 @@ function Section({
 }) {
   return (
     <section id={id} className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-10 sm:px-8 sm:py-20">
-      <div className="text-[11px] uppercase tracking-[0.25em] text-primary">{eyebrow}</div>
+      <div className="text-sm font-semibold text-primary">{eyebrow}</div>
       <h2 className="mt-3 max-w-3xl font-display text-3xl font-bold leading-[1.05] tracking-tight text-balance sm:text-5xl">
         {title}
       </h2>
@@ -125,108 +127,133 @@ const PRO = [
   "Dieta com calorias, proteína, carboidrato e gordura",
 ];
 
+const MODULES = [
+  {
+    to: "/atlas",
+    short: "Atlas",
+    title: "Atlas",
+    desc: "1.709 estruturas em 7 camadas",
+    Icon: PersonStanding,
+    tint: "bg-primary/10 text-primary",
+  },
+  {
+    to: "/raio-x",
+    short: "Raio-X",
+    title: "Raio-X do exercício",
+    desc: "O que cada exercício trabalha",
+    Icon: ScanLine,
+    tint: "bg-blue-500/10 text-blue-700",
+  },
+  {
+    to: "/editor",
+    short: "Simulador",
+    title: "Simulador",
+    desc: "Sua semana e como o corpo responde",
+    Icon: BarChart3,
+    tint: "bg-emerald-500/10 text-emerald-700",
+  },
+] as const;
+
 export function Landing() {
   return (
-    <div className="min-h-screen bg-background font-body text-foreground">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_70%_10%,var(--glow),transparent_55%)]" />
-
-      <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-8">
-          <div className="font-display text-2xl font-bold tracking-tight">
+    <div className="min-h-screen bg-background pb-tabs font-body text-foreground lg:pb-0">
+      <header className="absolute inset-x-0 top-0 z-20 lg:sticky lg:border-b lg:bg-background/90 lg:backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
+          <div className="font-display text-xl font-extrabold tracking-tight lg:text-2xl">
             MYO<span className="text-primary">/</span>LAB
           </div>
-          <nav className="flex items-center gap-1 sm:gap-4">
+          <nav className="hidden items-center gap-2 lg:flex">
             <a
               href="#como-funciona"
-              className="hidden rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground sm:block"
+              className="rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
               Como funciona
             </a>
             <a
               href="#pro"
-              className="hidden rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground sm:block"
+              className="rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
               PRO
             </a>
-            <Link
-              to="/atlas"
-              className="rounded-full border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background sm:px-4 sm:text-sm"
-            >
-              Atlas
-            </Link>
-            <Link
-              to="/raio-x"
-              className="rounded-full border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background sm:px-4 sm:text-sm"
-            >
-              Raio-X
-            </Link>
-            <Link
-              to="/editor"
-              className="rounded-full border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background sm:px-4 sm:text-sm"
-            >
-              Simulador
-            </Link>
+            {MODULES.map((m) => (
+              <Link
+                key={m.to}
+                to={m.to}
+                className="rounded-full border px-4 py-2 text-sm font-semibold transition-colors hover:bg-foreground hover:text-background"
+              >
+                {m.short}
+              </Link>
+            ))}
           </nav>
         </div>
       </header>
 
       <main className="relative">
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-12 sm:px-8 sm:pt-20 lg:grid-cols-[1.1fr_1fr]">
-          <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
-              Anatomia · Treino · Simulação
-            </div>
-            <h1 className="mt-4 font-display text-5xl font-bold leading-[0.95] tracking-tighter text-balance sm:text-7xl">
-              O corpo em 3D.
-              <br />
-              <span className="text-primary">Do estudo ao treino.</span>
+        {/* hero: the body first, then the panel with the promise and the way in */}
+        <section className="mx-auto max-w-6xl lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:px-8 lg:pb-16 lg:pt-14">
+          <div className="relative flex h-[56dvh] items-end justify-center bg-[radial-gradient(120%_80%_at_50%_35%,#fff_0%,transparent_65%)] pt-16 lg:order-2 lg:h-[640px] lg:rounded-[36px] lg:border lg:bg-card lg:pt-8">
+            <img
+              src="/img/corpo-musculos.webp"
+              alt="Corpo humano em 3D com a musculatura à mostra"
+              className="h-full w-auto object-contain pb-6 lg:pb-8"
+              width={372}
+              height={888}
+            />
+          </div>
+          <div className="relative -mt-7 rounded-t-[28px] bg-card px-5 pb-6 pt-6 shadow-[0_-16px_40px_-24px_rgba(21,24,29,0.35)] lg:order-1 lg:mt-0 lg:rounded-none lg:bg-transparent lg:p-0 lg:shadow-none">
+            <h1 className="font-display text-[34px] font-extrabold leading-[1.02] tracking-tight text-balance sm:text-6xl lg:text-7xl">
+              O corpo em 3D, do estudo ao treino.
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              Estude a anatomia, entenda o que cada exercício trabalha e simule como o corpo
-              responde à sua semana de treino.
+            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground lg:mt-6 lg:text-lg">
+              1.709 estruturas com nome em português e latim, o que cada exercício trabalha e a sua
+              semana de treino simulada.
             </p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {(
-                [
-                  ["/atlas", "Atlas", "Anatomia completa em português e latim."],
-                  [
-                    "/raio-x",
-                    "Raio-X do exercício",
-                    "O que cada exercício pega, músculo por músculo.",
-                  ],
-                  ["/editor", "Simulador", "Monte a semana e veja o avatar evoluir."],
-                ] as const
-              ).map(([to, t, d]) => (
+            <div className="mt-5 grid grid-cols-2 gap-2.5 sm:flex lg:mt-8">
+              <Link
+                to="/atlas"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-foreground px-6 text-[15px] font-bold text-background"
+              >
+                Abrir o Atlas
+              </Link>
+              <Link
+                to="/editor"
+                className="inline-flex h-12 items-center justify-center rounded-full border bg-card px-6 text-[15px] font-bold"
+              >
+                Montar treino
+              </Link>
+            </div>
+            <div className="mt-6 overflow-hidden rounded-[20px] border bg-card lg:mt-10">
+              {MODULES.map(({ to, title, desc, Icon, tint }) => (
                 <Link
                   key={to}
                   to={to}
-                  className="group rounded-[22px] border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-foreground/40"
+                  className="flex items-center gap-3 border-t px-4 py-3.5 first:border-t-0 hover:bg-secondary"
                 >
-                  <div className="flex items-center justify-between font-display text-base font-semibold">
-                    {t}
-                    <span className="text-muted-foreground transition-transform group-hover:translate-x-0.5">
-                      →
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{d}</p>
+                  <span
+                    className={`grid h-10 w-10 flex-none place-items-center rounded-xl ${tint}`}
+                  >
+                    <Icon className="h-5 w-5" strokeWidth={1.9} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[15px] font-bold">{title}</span>
+                    <span className="block text-[13px] text-muted-foreground">{desc}</span>
+                  </span>
+                  <ChevronRight className="ml-auto h-5 w-5 flex-none text-muted-foreground" />
                 </Link>
               ))}
             </div>
-          </div>
-          <div className="hidden lg:block">
-            <WeekMock />
           </div>
         </section>
 
         <Section
           id="atlas"
-          eyebrow="Atlas anatômico · grátis"
+          eyebrow="Atlas anatômico, grátis"
           title="O corpo inteiro, em 3D, para estudar."
         >
           <div className="grid gap-3 sm:grid-cols-3">
             {[
               ["1.709", "estruturas: músculos, ossos, ligamentos, nervos, vasos e órgãos"],
-              ["PT · LA", "nome em português e em latim oficial (Terminologia Anatomica, 2019)"],
+              ["PT e LA", "nome em português e em latim oficial (Terminologia Anatomica, 2019)"],
               ["7", "camadas para ligar, isolar e girar, com descrição de cada estrutura"],
             ].map(([n, d]) => (
               <div key={n} className="rounded-[24px] bg-card p-5">
@@ -241,23 +268,23 @@ export function Landing() {
             to="/atlas"
             className="mt-6 inline-flex rounded-full border px-6 py-3 font-display text-sm font-semibold hover:bg-secondary"
           >
-            Abrir o Atlas →
+            Abrir o Atlas
           </Link>
         </Section>
 
         <Section
           id="raio-x"
-          eyebrow="Raio-X do exercício · grátis"
+          eyebrow="Raio-X do exercício, grátis"
           title="Saiba o que o seu exercício está pegando."
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               [
-                "Exercício → músculos",
+                "Do exercício aos músculos",
                 "Principais e sinergistas marcados no 3D, com o quanto cada parte trabalha.",
               ],
               [
-                "Músculo → exercícios",
+                "Do músculo aos exercícios",
                 "Toque no músculo e veja os melhores exercícios, por equipamento.",
               ],
               [
@@ -279,11 +306,14 @@ export function Landing() {
             to="/raio-x"
             className="mt-6 inline-flex rounded-full border px-6 py-3 font-display text-sm font-semibold hover:bg-secondary"
           >
-            Abrir o Raio-X →
+            Abrir o Raio-X
           </Link>
         </Section>
 
-        <Section id="como-funciona" eyebrow="Simulador · como funciona" title="Três passos.">
+        <Section id="como-funciona" eyebrow="Simulador: como funciona" title="Três passos.">
+          <div className="mb-6 max-w-xl">
+            <WeekMock />
+          </div>
           <ol className="grid gap-3 md:grid-cols-3">
             {STEPS.map((s, i) => (
               <li key={s.t} className="flex gap-4 rounded-[24px] bg-card p-5">
@@ -317,7 +347,7 @@ export function Landing() {
               <div className="flex items-baseline justify-between">
                 <div className="font-display text-xl font-semibold">PRO</div>
                 <div className="text-sm">
-                  <strong className="text-primary">R$ 10</strong> · único, vitalício
+                  <strong className="text-primary">R$ 10</strong>, pagamento único
                 </div>
               </div>
               <ul className="mt-3 space-y-2 text-sm opacity-80">
@@ -338,7 +368,7 @@ export function Landing() {
               to="/editor"
               className="mt-6 inline-block rounded-full bg-primary px-7 py-4 font-display font-semibold text-primary-foreground shadow-[var(--shadow-primary)] transition-transform hover:scale-[1.02]"
             >
-              Abrir o simulador →
+              Abrir o simulador
             </Link>
             <p className="mt-8 max-w-3xl text-xs leading-relaxed text-muted-foreground">
               O MYO/LAB é uma simulação educativa com modelos simplificados. Não é prescrição de
@@ -354,6 +384,7 @@ export function Landing() {
           </div>
         </section>
       </main>
+      <BottomTabs />
     </div>
   );
 }
