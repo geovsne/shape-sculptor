@@ -237,6 +237,8 @@ export function RaioX() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [showTags, setShowTags] = useState(true);
+  // muscle and day lists: the first tap previews an exercise on the body, the second opens it
+  const [preview, setPreview] = useState<Pick | null>(null);
   const [pick, setPick] = useState<Pick>({ exId: "bench" });
   const [rom, setRom] = useState<Rom>("full");
   const [muscle, setMuscle] = useState<Muscle | null>(null);
@@ -257,6 +259,7 @@ export function RaioX() {
   const plan = useMemo(() => buildDay(day), [day]);
 
   const target: Head | null = muscle ? (head && HEADS[head].group === muscle ? head : null) : null;
+  useEffect(() => setPreview(null), [tab, muscle, head]);
   const ranked = useMemo(() => {
     if (!muscle) return [];
     const heads = target ? [target] : HEADS_OF[muscle];
@@ -275,6 +278,10 @@ export function RaioX() {
   }, [muscle, target, mEquip]);
 
   const colorFor = (m: Muscle, h: Head) => {
+    if (preview && (tab === "musculo" || tab === "treino")) {
+      const w = workOf(preview, h);
+      return w > 0 ? heat(w) : NEUTRAL;
+    }
     if (tab === "exercicio") {
       const w = workOf(pick, h);
       return w > 0 ? heat(w) : NEUTRAL;
@@ -314,6 +321,11 @@ export function RaioX() {
       .filter((t): t is NonNullable<typeof t> => !!t);
   };
 
+  const same = (x: Pick | null, y: Pick) =>
+    !!x && x.exId === y.exId && x.variant === y.variant && x.angle === y.angle;
+  /** first tap: show it on the body; second tap on the same one: open it */
+  const tapExercise = (p: Pick) => (same(preview, p) ? openExercise(p) : setPreview(p));
+
   const openExercise = (p: Pick) => {
     setPick({ exId: p.exId, variant: p.variant, angle: p.angle });
     setRom("full");
@@ -342,12 +354,14 @@ export function RaioX() {
   };
 
   // exercise tab: the three muscles it works most, pinned on the body
+  const tagged = tab === "exercicio" ? pick : preview;
+  const taggedEx = tagged ? EX_BY_ID[tagged.exId] : undefined;
   const labels: HeadLabel[] =
-    tab !== "exercicio"
+    !tagged || !taggedEx
       ? []
       : MUSCLE_IDS.map((m) => {
           const best = HEADS_OF[m]
-            .map((h) => ({ h, w: workOf(pick, h) }))
+            .map((h) => ({ h, w: workOf(tagged, h) }))
             .sort((x, y) => y.w - x.w)[0];
           return best && best.w > 0 ? { m, ...best } : null;
         })
@@ -357,7 +371,7 @@ export function RaioX() {
           .map((x) => ({
             head: x.h,
             text: `${MUSCLES[x.m].name} ${Math.round(Math.min(1, x.w) * 100)}%`,
-            strong: e.primary.includes(x.m),
+            strong: taggedEx.primary.includes(x.m),
           }));
 
   const TABS: [Tab, string][] = [
@@ -440,7 +454,7 @@ export function RaioX() {
             setHead(h);
           }}
         />
-        {tab === "exercicio" && (
+        {labels.length > 0 && (
           <button
             type="button"
             aria-pressed={showTags}
@@ -727,22 +741,49 @@ export function RaioX() {
                       ))}
                     </div>
                     <div className="space-y-0.5">
-                      {ranked.map((r) => (
-                        <button
-                          type="button"
-                          key={r.exId}
-                          onClick={() => openExercise(r)}
-                          className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs hover:bg-secondary"
-                        >
-                          <span className="min-w-0">
-                            {EX_BY_ID[r.exId]?.name}
-                            {r.label && <span className="text-muted-foreground"> · {r.label}</span>}
-                          </span>
-                          <span className="flex-none tabular-nums text-muted-foreground">
-                            {Math.round(r.w * 100)}%
-                          </span>
-                        </button>
-                      ))}
+                      {ranked.map((r) => {
+                        const on = same(preview, r);
+                        return (
+                          <div
+                            key={r.exId}
+                            className={`rounded-xl transition-colors ${on ? "bg-foreground/[0.06] ring-1 ring-foreground/15" : ""}`}
+                          >
+                            <button
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => tapExercise(r)}
+                              className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] ${on ? "font-semibold" : "hover:bg-secondary"}`}
+                            >
+                              <span className="min-w-0">
+                                {EX_BY_ID[r.exId]?.name}
+                                {r.label && (
+                                  <span className="font-normal text-muted-foreground">
+                                    {" "}
+                                    ({r.label})
+                                  </span>
+                                )}
+                              </span>
+                              <span className="flex-none tabular-nums text-muted-foreground">
+                                {Math.round(r.w * 100)}%
+                              </span>
+                            </button>
+                            {on && (
+                              <div className="flex items-center justify-between gap-2 px-3 pb-2.5">
+                                <span className="text-[11px] text-muted-foreground">
+                                  Veja no corpo o que ele pega
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => openExercise(r)}
+                                  className="rounded-full bg-foreground px-3.5 py-1.5 text-xs font-bold text-background"
+                                >
+                                  Abrir exercício
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                       {ranked.length === 0 && (
                         <p className="px-3 text-xs text-muted-foreground">
                           Nenhum exercício com esse equipamento.
@@ -814,8 +855,9 @@ export function RaioX() {
                         <button
                           type="button"
                           key={i.exId}
-                          onClick={() => openExercise(i)}
-                          className="flex w-full items-center justify-between gap-2 rounded-2xl bg-secondary px-3 py-2.5 text-left"
+                          aria-pressed={same(preview, i)}
+                          onClick={() => tapExercise(i)}
+                          className={`flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-left ${same(preview, i) ? "bg-foreground text-background" : "bg-secondary"}`}
                         >
                           <span className="min-w-0">
                             <span className="block text-sm font-semibold">
