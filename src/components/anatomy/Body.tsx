@@ -11,6 +11,7 @@ import {
   leanness,
   loadBody,
   follow,
+  followCloth,
   STATIC_GROUP,
   TENDON_GROUP,
   type BodyModel,
@@ -216,10 +217,9 @@ function buildGeometries(m: BodyModel) {
   const tint = new Float32Array(m.skin.tint.length * 3);
   const c = new THREE.Color();
   for (let i = 0; i < m.skin.tint.length; i++) {
-    // with a real skin texture the lips are already painted
-    const t = m.skin.tone;
-    if (t) c.setRGB(t[i * 3]!, t[i * 3 + 1]!, t[i * 3 + 2]!);
-    else c.setRGB(1, 1, 1);
+    // the evened texture already has one skin tone everywhere (tools/anatomy/even_skin.py);
+    // the old per-vertex tone correction would only add patches back
+    c.setRGB(1, 1, 1);
     c.lerp(LIP_TINT, m.skin.tint[i]! * 0.8);
     tint[i * 3] = c.r;
     tint[i * 3 + 1] = c.g;
@@ -362,7 +362,8 @@ export function Body({
           sheenRoughness: 0.55,
           sheenColor: new THREE.Color("#ffffff"),
           transparent: true,
-          side: THREE.DoubleSide,
+          // front faces only: drawing the inside of the cloth showed a dark crease at the crotch
+          side: THREE.FrontSide,
         });
       if (a.kind === "hair")
         return new THREE.MeshStandardMaterial({
@@ -440,15 +441,24 @@ export function Body({
     sn.needsUpdate = true;
     // clothes, hair and eyebrows ride on the deformed skin
     const skinNow = spa;
-    const riders: [THREE.BufferGeometry, { pos: Float32Array; bind: Uint32Array }][] = [
-      [geo.hair, model.hair],
-      ...geo.assets.map(
-        (g, k) => [g, model.assets[k]!] as [THREE.BufferGeometry, (typeof model.assets)[number]],
-      ),
+    // extra fat makes big changes under the clothes: give them a little room
+    const clothMargin = Math.min(0.012, 0.004 * Math.max(0, fatRel - 1));
+    const riders: [THREE.BufferGeometry, (gp: Float32Array) => void][] = [
+      [geo.hair, (gp) => follow(model.hair.pos, model.hair.bind, model.skin.pos, skinNow, gp)],
+      ...geo.assets.map((g, k): [THREE.BufferGeometry, (gp: Float32Array) => void] => {
+        const a = model.assets[k]!;
+        return [
+          g,
+          (gp) =>
+            a.kind === "cloth"
+              ? followCloth(a.pos, a.nrm, a.idx, a.bind, model.skin.pos, skinNow, gp, clothMargin)
+              : follow(a.pos, a.bind, model.skin.pos, skinNow, gp),
+        ];
+      }),
     ];
-    for (const [g, part] of riders) {
+    for (const [g, place] of riders) {
       const gp = g.getAttribute("position") as THREE.BufferAttribute;
-      follow(part.pos, part.bind, model.skin.pos, skinNow, gp.array as Float32Array);
+      place(gp.array as Float32Array);
       gp.needsUpdate = true;
       g.computeVertexNormals();
       g.computeBoundingSphere();

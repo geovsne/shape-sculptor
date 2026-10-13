@@ -216,7 +216,10 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
     },
     assets: (h.assets ?? []).map((a, k) => ({
       ...a,
-      pos: pos(`a${k}.pos`),
+      pos:
+        a.kind === "cloth"
+          ? relaxCrotch(pos(`a${k}.pos`), raw(`a${k}.idx`) as Uint32Array)
+          : pos(`a${k}.pos`),
       nrm: unit(`a${k}.nrm`),
       idx: raw(`a${k}.idx`) as Uint32Array,
       uv: scaled(`a${k}.uv`, 1, 65535),
@@ -251,6 +254,21 @@ function decode(h: Header, buf: ArrayBuffer): BodyModel {
 export const REST_DEV: Record<Sex, number> = { m: 0.25, f: 0.2 };
 
 /** relative fat distribution per region (order = header.fatRegions) */
+/**
+ * Most a fat layer can add in each region (metres). Past it the layer saturates smoothly: a body
+ * with very high fat keeps growing, but stays a human shape instead of folding through itself.
+ */
+const FAT_CAP: Record<string, number> = {
+  abdomen: 0.11,
+  lowback: 0.07,
+  chest: 0.06,
+  glutes: 0.08,
+  thighs: 0.065,
+  arms: 0.04,
+  back: 0.05,
+  face: 0.009,
+  other: 0.02,
+};
 const FAT_DIST: Record<Sex, Record<string, number>> = {
   m: {
     abdomen: 1.7,
@@ -408,7 +426,8 @@ export function deform(
     Fv[i] = fat * mult * fatScale + abd * bellyK * Math.max(0, bf - h.restBf);
   }
   const extra = Math.max(0, Math.min(1, fatScale));
-  const fatIters = Math.round(2 + 12 * extra);
+  // lots of fat rounds the contours more
+  const fatIters = Math.round(2 + 12 * extra + 10 * Math.max(0, Math.min(1, (fatScale - 1) / 2)));
   let Ft = new Float32Array(ns);
   for (let it = 0; it < fatIters; it++) {
     for (let i = 0; i < ns; i++) {
@@ -421,11 +440,25 @@ export function deform(
     }
     [Fv, Ft] = [Ft, Fv];
   }
+  const caps = regions.map((r) => FAT_CAP[r] ?? 0.03);
   for (let i = 0; i < ns; i++) {
     const j = i * 3;
     const depth = sk.depth[i]!;
+    let f = Fv[i]!;
+    if (f > 0) {
+      // saturate at the region's ceiling, and push more to the front than to the sides
+      let cap = 0,
+        wsum = 0;
+      for (let r = 0; r < R; r++) {
+        const w = sk.region[i * R + r]!;
+        cap += w * caps[r]!;
+        wsum += w;
+      }
+      cap = wsum > 0 ? cap / wsum : 0.03;
+      f = cap * Math.tanh(f / cap) * (0.72 + 0.28 * Math.max(0, sk.nrm[j + 2]!));
+    }
     // never sink the skin into what lies underneath
-    const f = Math.max(Fv[i]!, -(depth - 0.0012));
+    f = Math.max(f, -(depth - 0.0012));
     out.skin[j] = sk.pos[j]! + D[j]! + sk.nrm[j]! * f;
     out.skin[j + 1] = sk.pos[j + 1]! + D[j + 1]! + sk.nrm[j + 1]! * f;
     out.skin[j + 2] = sk.pos[j + 2]! + D[j + 2]! + sk.nrm[j + 2]! * f;
@@ -480,6 +513,162 @@ export function smoothLayerNormals(
 }
 
 /** moves attached meshes (clothes, hair) with the skin vertex each one is bound to */
+/**
+ * The shorts fold into a sharp V between the legs, with a dark crease where the front panel meets
+ * the crotch. Fill that crease: near the middle of the shorts each point may only move outwards
+ * (forward on the front, backward on the back), towards the average of its neighbours, so valleys
+ * fill in and nothing sinks into the skin. Points split at UV seams move together.
+ */
+function relaxCrotch(pos: Float32Array, idx: Uint32Array) {
+  const n = pos.length / 3;
+  // weld coincident points so seams cannot tear
+  const key = new Map<string, number>();
+  const id = new Int32Array(n);
+  const rep: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(pos[i * 3]! * 1e4)},${Math.round(pos[i * 3 + 1]! * 1e4)},${Math.round(pos[i * 3 + 2]! * 1e4)}`;
+    let v = key.get(k);
+    if (v === undefined) {
+      v = rep.length;
+      key.set(k, v);
+      rep.push(i);
+    }
+    id[i] = v;
+  }
+  const m = rep.length;
+  const nb: Set<number>[] = Array.from({ length: m }, () => new Set());
+  for (let f = 0; f < idx.length; f += 3) {
+    const a = id[idx[f]!]!,
+      b = id[idx[f + 1]!]!,
+      c = id[idx[f + 2]!]!;
+    nb[a]!.add(b).add(c);
+    nb[b]!.add(a).add(c);
+    nb[c]!.add(a).add(b);
+  }
+  let y0 = Infinity,
+    y1 = -Infinity,
+    zc = 0;
+  for (let i = 0; i < n; i++) {
+    y0 = Math.min(y0, pos[i * 3 + 1]!);
+    y1 = Math.max(y1, pos[i * 3 + 1]!);
+    zc += pos[i * 3 + 2]! / n;
+  }
+  const yc = y0 + 0.45 * (y1 - y0);
+  const band = 0.24 * (y1 - y0);
+  const z = new Float32Array(m);
+  const w = new Float32Array(m);
+  const front = new Uint8Array(m);
+  for (let v = 0; v < m; v++) {
+    const i = rep[v]!;
+    const x = pos[i * 3]!;
+    const y = pos[i * 3 + 1]!;
+    z[v] = pos[i * 3 + 2]!;
+    front[v] = z[v]! > zc ? 1 : 0;
+    w[v] = Math.exp(-((x / 0.1) ** 2)) * Math.exp(-(((y - yc) / band) ** 2));
+  }
+  for (let it = 0; it < 90; it++) {
+    const prev = z.slice();
+    for (let v = 0; v < m; v++) {
+      if (w[v]! < 0.02 || nb[v]!.size === 0) continue;
+      let s = 0;
+      for (const u of nb[v]!) s += prev[u]!;
+      const target = prev[v]! + (s / nb[v]!.size - prev[v]!) * w[v]!;
+      z[v] = front[v] ? Math.max(prev[v]!, target) : Math.min(prev[v]!, target);
+    }
+  }
+  const out = pos.slice();
+  for (let i = 0; i < n; i++) out[i * 3 + 2] = z[id[i]!]!;
+  return out;
+}
+
+const clothAdj = new WeakMap<Uint32Array, { id: Int32Array; nbr: number[][] }>();
+/** neighbours of each cloth point, with points split at UV seams welded into one */
+function weldedAdjacency(rest: Float32Array, idx: Uint32Array) {
+  const hit = clothAdj.get(idx);
+  if (hit) return hit;
+  const n = rest.length / 3;
+  const key = new Map<string, number>();
+  const id = new Int32Array(n);
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(rest[i * 3]! * 1e4)},${Math.round(rest[i * 3 + 1]! * 1e4)},${Math.round(rest[i * 3 + 2]! * 1e4)}`;
+    let v = key.get(k);
+    if (v === undefined) key.set(k, (v = key.size));
+    id[i] = v;
+  }
+  const sets: Set<number>[] = Array.from({ length: key.size }, () => new Set());
+  for (let f = 0; f < idx.length; f += 3) {
+    const a = id[idx[f]!]!,
+      b = id[idx[f + 1]!]!,
+      c = id[idx[f + 2]!]!;
+    sets[a]!.add(b).add(c);
+    sets[b]!.add(a).add(c);
+    sets[c]!.add(a).add(b);
+  }
+  const res = { id, nbr: sets.map((x) => [...x]) };
+  clothAdj.set(idx, res);
+  return res;
+}
+
+/**
+ * Clothes: like `follow`, but the skin's movement is spread over neighbouring cloth points so the
+ * fabric stretches instead of tearing when the body changes a lot, and it sits `margin` off the
+ * skin along its own normal so the skin cannot poke through.
+ */
+export function followCloth(
+  rest: Float32Array,
+  nrm: Float32Array,
+  idx: Uint32Array,
+  bind: Uint32Array,
+  skinRest: Float32Array,
+  skinNow: Float32Array,
+  out: Float32Array,
+  margin: number,
+) {
+  const { id, nbr } = weldedAdjacency(rest, idx);
+  const m = nbr.length;
+  let d = new Float32Array(m * 3);
+  const cnt = new Float32Array(m);
+  for (let i = 0; i < bind.length; i++) {
+    const q = bind[i]! * 3,
+      v = id[i]! * 3;
+    d[v] = d[v]! + skinNow[q]! - skinRest[q]!;
+    d[v + 1] = d[v + 1]! + skinNow[q + 1]! - skinRest[q + 1]!;
+    d[v + 2] = d[v + 2]! + skinNow[q + 2]! - skinRest[q + 2]!;
+    cnt[id[i]!] = cnt[id[i]!]! + 1;
+  }
+  for (let v = 0; v < m; v++)
+    for (let c = 0; c < 3; c++) d[v * 3 + c] = d[v * 3 + c]! / (cnt[v] || 1);
+  let t = new Float32Array(m * 3);
+  for (let it = 0; it < 6; it++) {
+    for (let v = 0; v < m; v++) {
+      const ns = nbr[v]!;
+      for (let c = 0; c < 3; c++) {
+        let sum = 0;
+        for (const u of ns) sum += d[u * 3 + c]!;
+        t[v * 3 + c] = ns.length ? 0.5 * d[v * 3 + c]! + (0.5 * sum) / ns.length : d[v * 3 + c]!;
+      }
+    }
+    [d, t] = [t, d];
+  }
+  // one normal per welded point, so both sides of a seam move the same way
+  const nw = new Float32Array(m * 3);
+  for (let i = 0; i < bind.length; i++) {
+    const v = id[i]! * 3;
+    for (let c = 0; c < 3; c++) nw[v + c] = nw[v + c]! + nrm[i * 3 + c]!;
+  }
+  for (let v = 0; v < m; v++) {
+    const l = Math.hypot(nw[v * 3]!, nw[v * 3 + 1]!, nw[v * 3 + 2]!) || 1;
+    for (let c = 0; c < 3; c++) nw[v * 3 + c] = nw[v * 3 + c]! / l;
+  }
+  for (let i = 0; i < bind.length; i++) {
+    const j = i * 3,
+      v = id[i]! * 3;
+    out[j] = rest[j]! + d[v]! + nw[v]! * margin;
+    out[j + 1] = rest[j + 1]! + d[v + 1]! + nw[v + 1]! * margin;
+    out[j + 2] = rest[j + 2]! + d[v + 2]! + nw[v + 2]! * margin;
+  }
+}
+
 export function follow(
   rest: Float32Array,
   bind: Uint32Array,
