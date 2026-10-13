@@ -640,7 +640,7 @@ export function Atlas() {
         <p className="mt-6 text-[10px] leading-relaxed text-muted-foreground">
           Nomes em português, com latim e código da Terminologia Anatomica 2ª ed. (FIPAT, 2019).
           Descrições baseadas na Wikipédia e no Feneis (CC BY-SA). Modelos: Z-Anatomy (CC BY-SA
-          4.0), baseado em BodyParts3D. Quiz em breve.
+          4.0), baseado em BodyParts3D.
         </p>
       </aside>
     </div>
