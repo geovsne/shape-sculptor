@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeedbackButton, FeedbackLink } from "@/components/feedback/Feedback";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftRight, Search } from "lucide-react";
+import { ArrowLeftRight, Eye, EyeOff, Search } from "lucide-react";
 import { BottomTabs } from "@/components/shell/BottomTabs";
 import { ProfileLink } from "@/components/shell/ProfileLink";
 import { Sheet } from "@/components/shell/Sheet";
@@ -236,6 +236,7 @@ export function RaioX() {
   const [tab, setTab] = useState<Tab>("exercicio");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [showTags, setShowTags] = useState(true);
   const [pick, setPick] = useState<Pick>({ exId: "bench" });
   const [rom, setRom] = useState<Rom>("full");
   const [muscle, setMuscle] = useState<Muscle | null>(null);
@@ -432,13 +433,24 @@ export function RaioX() {
           skin={0}
           neutral={NEUTRAL}
           colorFor={colorFor}
-          labels={labels}
+          labels={showTags ? labels : []}
           onPick={(m, h) => {
             setTab("musculo");
             setMuscle(m);
             setHead(h);
           }}
         />
+        {tab === "exercicio" && (
+          <button
+            type="button"
+            aria-pressed={showTags}
+            onClick={() => setShowTags(!showTags)}
+            className="glass absolute right-3 top-2 z-10 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold lg:right-[400px] lg:top-24"
+          >
+            {showTags ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {showTags ? "Ocultar %" : "Mostrar %"}
+          </button>
+        )}
         <div className="pointer-events-none absolute bottom-2 left-1/2 hidden -translate-x-1/2 items-center gap-3 rounded-full bg-background/80 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur lg:bottom-6 lg:flex">
           {tab === "comparar" && cmpShow === "ambos" ? (
             <>

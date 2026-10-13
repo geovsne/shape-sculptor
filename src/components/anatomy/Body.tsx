@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
+import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
 import type { Head, Muscle, Profile } from "@/lib/training";
 import { HEADS, HEAD_IDS } from "@/lib/training";
@@ -74,6 +74,7 @@ function HeadTags({
   scale: number;
 }) {
   const refs = useRef<(HTMLDivElement | null)[]>([]);
+  const lines = useRef<(THREE.Object3D | null)[]>([]);
   const items = labels
     .map((l, i) => {
       // alternate sides so neighbouring tags don't overlap
@@ -94,26 +95,45 @@ function HeadTags({
       const facing =
         nw.dot(camera.position.clone().sub(w.multiplyScalar(scale)).normalize()) > -0.3;
       el.style.opacity = facing ? "1" : "0";
+      const ln = lines.current[i];
+      if (ln) ln.visible = facing;
     });
   });
   return (
     <>
-      {items.map((it, i) => (
-        <Html key={it.head + i} position={it.a.p} center zIndexRange={[20, 0]}>
-          <div
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
-            className="pointer-events-none flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-card/95 px-2.5 py-1 font-body text-[12px] font-bold text-foreground shadow-[0_6px_16px_-8px_rgba(21,24,29,0.45)] transition-opacity duration-200"
-          >
-            <span
-              className="h-2 w-2 rounded-full bg-primary"
-              style={{ opacity: it.strong ? 1 : 0.5 }}
+      {items.map((it, i) => {
+        // the tag sits outside the body, tied to its muscle by a thin line
+        const side = it.a.p.x < 0 ? -1 : 1;
+        const out = it.a.p.clone().add(new THREE.Vector3(side * 0.13, 0.03, 0.04));
+        return (
+          <group key={it.head + i}>
+            <Line
+              ref={(o) => {
+                lines.current[i] = o as unknown as THREE.Object3D | null;
+              }}
+              points={[it.a.p, out]}
+              color="#15181d"
+              lineWidth={1}
+              transparent
+              opacity={0.45}
             />
-            {it.text}
-          </div>
-        </Html>
-      ))}
+            <Html position={out} center zIndexRange={[20, 0]}>
+              <div
+                ref={(el) => {
+                  refs.current[i] = el;
+                }}
+                className={`pointer-events-none flex items-center gap-1 whitespace-nowrap rounded-full border ${it.a.p.x < 0 ? "-translate-x-1/2" : "translate-x-1/2"} bg-card/90 px-1.5 py-px font-body text-[10.5px] font-bold text-foreground shadow-[0_4px_10px_-6px_rgba(21,24,29,0.45)] backdrop-blur transition-opacity duration-200`}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-primary"
+                  style={{ opacity: it.strong ? 1 : 0.5 }}
+                />
+                {it.text}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
     </>
   );
 }
