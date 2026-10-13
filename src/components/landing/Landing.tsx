@@ -193,7 +193,7 @@ export function Landing() {
       <main className="relative">
         {/* hero: the body first, then the panel with the promise and the way in */}
         <section className="mx-auto max-w-6xl lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:px-8 lg:pb-16 lg:pt-14">
-          <div className="relative flex h-[56dvh] items-end justify-center bg-[radial-gradient(120%_80%_at_50%_35%,#fff_0%,transparent_65%)] pt-16 lg:order-2 lg:h-[640px] lg:rounded-[36px] lg:border lg:bg-card lg:pt-8">
+          <div className="relative flex h-[56dvh] items-end justify-center bg-[radial-gradient(120%_80%_at_50%_35%,var(--glow)_0%,transparent_65%)] pt-16 lg:order-2 lg:h-[640px] lg:rounded-[36px] lg:border lg:bg-card lg:pt-8">
             <img
               src="/img/corpo-musculos.webp"
               alt="Corpo humano em 3D com a musculatura à mostra"

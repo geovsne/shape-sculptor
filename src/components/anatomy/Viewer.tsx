@@ -46,6 +46,9 @@ export function Viewer({
         shadow-mapSize={[1024, 1024]}
       />
       <directionalLight position={[-3, 2, -2]} intensity={0.8} color="#cfe3ff" />
+      {/* rim lights keep the body outline readable on a dark page */}
+      <directionalLight position={[-2.5, 2.5, -3]} intensity={2.4} color="#bcd4ff" />
+      <directionalLight position={[2.5, 1.5, -3]} intensity={1.8} color="#ffd2c0" />
       <Environment resolution={128}>
         <Lightformer
           intensity={2}
