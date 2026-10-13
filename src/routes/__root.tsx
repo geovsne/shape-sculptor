@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { THEME_SCRIPT, useSystemThemeSync } from "@/lib/theme";
 import {
   Outlet,
   Link,
@@ -108,8 +109,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -122,6 +124,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useSystemThemeSync();
 
   return (
     <QueryClientProvider client={queryClient}>

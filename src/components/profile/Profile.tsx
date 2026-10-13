@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Camera, Monitor, Moon, Sun, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { BottomTabs } from "@/components/shell/BottomTabs";
+import { useTheme, type Theme } from "@/lib/theme";
 
 /** a setting that is drawn but not usable yet */
 function Row({ label, value, last }: { label: string; value: string; last?: boolean }) {
@@ -26,6 +27,7 @@ function Group({ title, note, children }: { title: string; note?: string; childr
 }
 
 export function Profile() {
+  const [theme, setTheme] = useTheme();
   return (
     <div className="min-h-screen bg-background pb-tabs font-body text-foreground lg:pb-12">
       <header className="mx-auto flex max-w-xl items-center justify-between px-5 pb-2 pt-[max(16px,env(safe-area-inset-top))] lg:pt-8">
@@ -69,31 +71,30 @@ export function Profile() {
           </div>
         </Group>
 
-        <Group title="Aparência" note="Em breve">
-          <div
-            className="grid grid-cols-3 gap-1.5 p-1.5 opacity-50"
-            role="radiogroup"
-            aria-label="Tema"
-          >
+        <Group title="Aparência">
+          <div className="grid grid-cols-3 gap-1.5 p-1.5" role="radiogroup" aria-label="Tema">
             {(
               [
-                ["Claro", Sun, true],
-                ["Escuro", Moon, false],
-                ["Automático", Monitor, false],
-              ] as const
-            ).map(([label, Icon, on]) => (
-              <button
-                key={label}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled
-                className={`flex flex-col items-center gap-1.5 rounded-2xl py-3 text-[13px] font-semibold ${on ? "bg-foreground text-background" : ""}`}
-              >
-                <Icon className="h-5 w-5" strokeWidth={1.8} />
-                {label}
-              </button>
-            ))}
+                ["light", "Claro", Sun],
+                ["dark", "Escuro", Moon],
+                ["system", "Automático", Monitor],
+              ] as const satisfies readonly (readonly [Theme, string, unknown])[]
+            ).map(([id, label, Icon]) => {
+              const on = theme === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setTheme(id)}
+                  className={`flex flex-col items-center gap-1.5 rounded-2xl py-3 text-[13px] font-semibold transition-colors ${on ? "bg-foreground text-background" : "hover:bg-secondary"}`}
+                >
+                  <Icon className="h-5 w-5" strokeWidth={1.8} />
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </Group>
 
