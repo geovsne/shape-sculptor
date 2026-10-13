@@ -95,6 +95,14 @@ function HeadTags({
       const facing =
         nw.dot(camera.position.clone().sub(w.multiplyScalar(scale)).normalize()) > -0.3;
       el.style.opacity = facing ? "1" : "0";
+      // keep the tag inside the screen when the body is zoomed in
+      const m = parseFloat(el.style.marginLeft || "0");
+      const r = el.getBoundingClientRect();
+      const left = r.left - m;
+      const right = r.right - m;
+      const dx =
+        left < 6 ? 6 - left : right > window.innerWidth - 6 ? window.innerWidth - 6 - right : 0;
+      if (Math.abs(dx - m) > 0.5) el.style.marginLeft = `${dx}px`;
       const ln = lines.current[i];
       if (ln) ln.visible = facing;
     });

@@ -572,9 +572,6 @@ export function Atlas() {
           {searchBox("h-12 flex-1 shadow-[0_8px_24px_-16px_rgba(21,24,29,0.4)]")}
           <FeedbackButton screen="atlas" />
         </div>
-        <div className="mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-          {layerChips}
-        </div>
       </div>
 
       {/* desktop header */}
@@ -597,7 +594,7 @@ export function Atlas() {
         </nav>
       </header>
 
-      <div className="absolute inset-x-0 top-0 bottom-[calc(64px+env(safe-area-inset-bottom)+40dvh-28px)] lg:inset-0">
+      <div className="absolute inset-x-0 top-16 bottom-[calc(64px+env(safe-area-inset-bottom)+var(--sheet-vis,40dvh)-28px)] lg:inset-0">
         <Canvas dpr={[1, SMALL ? 1.5 : 2]} camera={{ position: HOME.cam.toArray(), fov: 32 }}>
           <ambientLight intensity={0.6} />
           <directionalLight position={[2, 4, 3]} intensity={1.6} />
@@ -643,10 +640,17 @@ export function Atlas() {
       {/* phone: one panel for the picked structure, the search results or the filters */}
       <Sheet
         peek="40dvh"
+        min="84px"
         open={sheetOpen}
         onOpenChange={setSheetOpen}
+        raiseKey={pick ? `${pick.system}-${pick.index}` : undefined}
         label="Atlas"
         className="lg:hidden"
+        header={
+          <div className="flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]">
+            {layerChips}
+          </div>
+        }
       >
         <div className="px-5 pb-6 pt-1">{resultList ?? structure ?? filters}</div>
       </Sheet>

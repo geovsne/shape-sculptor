@@ -418,7 +418,7 @@ export function Studio() {
         </nav>
       </header>
 
-      <div className="absolute inset-x-0 top-24 bottom-[calc(64px+env(safe-area-inset-bottom)+38dvh-28px)] lg:inset-0">
+      <div className="absolute inset-x-0 top-24 bottom-[calc(64px+env(safe-area-inset-bottom)+var(--sheet-vis,38dvh)-28px)] lg:inset-0">
         <Viewer
           captureRef={captureRef}
           profile={shown.profile}
@@ -442,9 +442,15 @@ export function Studio() {
         </div>
       )}
 
-      <Sheet peek="38dvh" open={sheetOpen} onOpenChange={setSheetOpen} label="Simulador">
+      <Sheet
+        peek="42dvh"
+        min={trainBar ? (weeks.length > 1 ? "184px" : "96px") : "56px"}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        label="Simulador"
+        header={trainBar ? <div className="px-5 pb-3">{trainBar}</div> : undefined}
+      >
         <div className="flex flex-col gap-4 pb-6 lg:contents">
-          {trainBar && <div className="px-5 pt-1 lg:hidden">{trainBar}</div>}
           {/* Left panel */}
           <aside className="flex flex-col lg:absolute lg:bottom-6 lg:left-6 lg:top-28 lg:w-[420px] lg:overflow-hidden lg:rounded-[28px] lg:border lg:bg-card/75 lg:shadow-[0_30px_60px_-30px_rgba(21,24,29,0.25)] lg:backdrop-blur-xl">
             {mode === "explore" ? (

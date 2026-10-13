@@ -426,7 +426,7 @@ export function RaioX() {
         </nav>
       </header>
 
-      <div className="absolute inset-x-0 top-14 bottom-[calc(64px+env(safe-area-inset-bottom)+42dvh-28px)] lg:inset-0">
+      <div className="absolute inset-x-0 top-14 bottom-[calc(64px+env(safe-area-inset-bottom)+var(--sheet-vis,38dvh)-28px)] lg:inset-0">
         <Viewer
           profile={body.profile}
           headDev={body.headDev}
@@ -467,7 +467,13 @@ export function RaioX() {
         </div>
       </div>
 
-      <Sheet peek="42dvh" open={sheetOpen} onOpenChange={setSheetOpen} label="Raio-X">
+      <Sheet
+        peek="38dvh"
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        raiseKey={`${pick.exId}-${pick.variant ?? ""}-${tab}`}
+        label="Raio-X"
+      >
         <div className="flex flex-col gap-5 px-5 pb-8 pt-1 lg:contents">
           {/* left: what to look at */}
           <aside className="flex flex-col lg:border lg:bg-card/75 lg:backdrop-blur-xl lg:shadow-[0_30px_60px_-30px_rgba(21,24,29,0.25)] lg:absolute lg:bottom-6 lg:left-6 lg:top-24 lg:w-[400px] lg:overflow-y-auto lg:rounded-[28px] lg:p-5">
