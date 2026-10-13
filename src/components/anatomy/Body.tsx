@@ -451,7 +451,17 @@ export function Body({
           g,
           (gp) =>
             a.kind === "cloth"
-              ? followCloth(a.pos, a.nrm, a.idx, a.bind, model.skin.pos, skinNow, gp, clothMargin)
+              ? followCloth(
+                  a.pos,
+                  a.nrm,
+                  a.idx,
+                  a.bind,
+                  model.skin.pos,
+                  skinNow,
+                  gp,
+                  clothMargin,
+                  sna,
+                )
               : follow(a.pos, a.bind, model.skin.pos, skinNow, gp),
         ];
       }),

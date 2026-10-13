@@ -623,6 +623,7 @@ export function followCloth(
   skinNow: Float32Array,
   out: Float32Array,
   margin: number,
+  skinNrm?: Float32Array,
 ) {
   const { id, nbr } = weldedAdjacency(rest, idx);
   const m = nbr.length;
@@ -666,6 +667,43 @@ export function followCloth(
     out[j] = rest[j]! + d[v]! + nw[v]! * margin;
     out[j + 1] = rest[j + 1]! + d[v + 1]! + nw[v + 1]! * margin;
     out[j + 2] = rest[j + 2]! + d[v + 2]! + nw[v + 2]! * margin;
+  }
+  // the fabric never sits inside the skin it is tied to: measure how far each point is too deep,
+  // smooth that over the cloth so it does not crumple, and push out along the cloth's own normal
+  if (skinNrm && margin > 0) {
+    const gap = 0.002 + margin;
+    let k = new Float32Array(m);
+    for (let i = 0; i < bind.length; i++) {
+      const j = i * 3,
+        q = bind[i]! * 3;
+      const sgn =
+        (out[j]! - skinNow[q]!) * skinNrm[q]! +
+        (out[j + 1]! - skinNow[q + 1]!) * skinNrm[q + 1]! +
+        (out[j + 2]! - skinNow[q + 2]!) * skinNrm[q + 2]!;
+      const v = id[i]!;
+      k[v] = Math.max(k[v]!, gap - sgn);
+    }
+    let kt = new Float32Array(m);
+    for (let it = 0; it < 8; it++) {
+      for (let v = 0; v < m; v++) {
+        const ns = nbr[v]!;
+        let sum = 0;
+        for (const u of ns) sum += k[u]!;
+        // keep the deepest need, blended with the neighbours so the push is a smooth bulge
+        kt[v] =
+          Math.max(k[v]!, ns.length ? sum / ns.length : 0) * 0.85 +
+          (ns.length ? sum / ns.length : 0) * 0.15;
+      }
+      [k, kt] = [kt, k];
+    }
+    for (let i = 0; i < bind.length; i++) {
+      const j = i * 3,
+        v = id[i]!;
+      const push = Math.max(0, k[v]!);
+      out[j] = out[j]! + nw[v * 3]! * push;
+      out[j + 1] = out[j + 1]! + nw[v * 3 + 1]! * push;
+      out[j + 2] = out[j + 2]! + nw[v * 3 + 2]! * push;
+    }
   }
 }
 
