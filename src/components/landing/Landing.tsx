@@ -218,10 +218,10 @@ export function Landing() {
                 Abrir o Atlas
               </Link>
               <Link
-                to="/editor"
+                to="/raio-x"
                 className="inline-flex h-12 items-center justify-center rounded-full border bg-card px-6 text-[15px] font-bold"
               >
-                Montar treino
+                Raio-X do exercício
               </Link>
             </div>
             <div className="mt-6 overflow-hidden rounded-[20px] border bg-card lg:mt-10">
