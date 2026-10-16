@@ -215,13 +215,13 @@ export function Landing() {
                 to="/atlas"
                 className="inline-flex h-12 items-center justify-center rounded-full bg-foreground px-6 text-[15px] font-bold text-background"
               >
-                Abrir o Atlas
+                Atlas
               </Link>
               <Link
                 to="/raio-x"
-                className="inline-flex h-12 items-center justify-center rounded-full border bg-card px-6 text-[15px] font-bold"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-foreground px-6 text-[15px] font-bold text-background"
               >
-                Raio-X do exercício
+                Raio-X
               </Link>
             </div>
             <div className="mt-6 overflow-hidden rounded-[20px] border bg-card lg:mt-10">
